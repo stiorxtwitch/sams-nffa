@@ -1,1 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Dispatch Véhicules</title>
+
+<style>
+:root{--primary:#e11d48;--primary-light:#fee2e2;--primary-dark:#991b1b}
+body{
+  font-family:Inter;
+  margin:0;
+  background:url('https://i.imgur.com/A6V1lhN.jpg') center/cover fixed;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:rgba(255,255,255,0.7);
+  z-index:-1;
+}
+header{
+  background:linear-gradient(90deg,var(--primary),var(--primary-dark));
+  color:white;
+  padding:16px 24px;
+  display:flex;
+  justify-content:space-between;
+}
+.container{max-width:1100px;margin:30px auto}
+.card{
+  background:white;
+  padding:20px;
+  border-radius:14px;
+  box-shadow:0 10px 20px rgba(0,0,0,.1);
+}
+.vehicle{
+  padding:14px;
+  border-radius:10px;
+  border:1px solid #fecaca;
+  margin-bottom:10px;
+  display:flex;
+  justify-content:space-between;
+}
+.status{font-weight:600}
+.dispo{color:#16a34a}
+.mission{color:#ea580c}
+.hs{color:#dc2626}
+button{
+  padding:8px 14px;
+  border-radius:8px;
+  border:0;
+  cursor:pointer;
+}
+.logout{background:#dc2626;color:white}
+</style>
+</head>
+
+<body>
+<header>
+  <h2>Dispatch Véhicules</h2>
+  <button class="logout" onclick="logout()">Déconnexion</button>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h3>Véhicules</h3>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+const user = JSON.parse(localStorage.currentUser || "null")
+if(!user) location.href="login.html"
+
+let vehicles = [
+  {name:"Ambulance 1", status:"dispo"},
+  {name:"Ambulance 2", status:"mission"},
+  {name:"Véhicule SMUR", status:"hs"}
+]
+
+function render(){
+  list.innerHTML = vehicles.map(v=>`
+    <div class="vehicle">
+      <span>${v.name}</span>
+      <span class="status ${v.status}">
+        ${v.status === "dispo" ? "Disponible" :
+          v.status === "mission" ? "En mission" : "HS"}
+      </span>
+    </div>
+  `).join("")
+}
+render()
+
+function logout(){
+  const users = JSON.parse(localStorage.users)
+  const u = users.find(x=>x.user===user.user)
+  if(u) u.presence=false
+  localStorage.users = JSON.stringify(users)
+  localStorage.removeItem("currentUser")
+  location.href="login.html"
+}
+
+// AUTO OFFLINE FERMETURE PAGE
+window.addEventListener("beforeunload",()=>{
+  const users = JSON.parse(localStorage.users)
+  const u = users.find(x=>x.user===user.user)
+  if(u) u.presence=false
+  localStorage.users = JSON.stringify(users)
+})
+</script>
+</body>
+</html>
 
