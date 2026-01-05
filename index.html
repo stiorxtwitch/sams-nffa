@@ -2,20 +2,32 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dispatch Véhicules</title>
 
 <style>
-:root{--primary:#e11d48;--primary-light:#fee2e2;--primary-dark:#991b1b}
+:root{
+  --primary:#e11d48;
+  --primary-light:#fee2e2;
+  --primary-dark:#991b1b;
+  --border:#fecaca;
+  --shadow:0 6px 18px rgba(225,29,72,0.08);
+  --success:#16a34a;
+  --warning:#ea580c;
+  --danger:#dc2626;
+}
 body{
-  font-family:Inter;
+  font-family:Inter,system-ui;
   margin:0;
-  background:url('https://i.imgur.com/A6V1lhN.jpg') center/cover fixed;
+  background:url('https://i.imgur.com/A6V1lhN.jpg') no-repeat center center fixed;
+  background-size:cover;
 }
 body::before{
   content:"";
   position:fixed;
   inset:0;
   background:rgba(255,255,255,0.7);
+  backdrop-filter:blur(4px);
   z-index:-1;
 }
 header{
@@ -24,89 +36,122 @@ header{
   padding:16px 24px;
   display:flex;
   justify-content:space-between;
+  align-items:center;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
 }
-.container{max-width:1100px;margin:30px auto}
-.card{
-  background:white;
-  padding:20px;
-  border-radius:14px;
-  box-shadow:0 10px 20px rgba(0,0,0,.1);
-}
-.vehicle{
-  padding:14px;
-  border-radius:10px;
-  border:1px solid #fecaca;
-  margin-bottom:10px;
-  display:flex;
-  justify-content:space-between;
-}
-.status{font-weight:600}
-.dispo{color:#16a34a}
-.mission{color:#ea580c}
-.hs{color:#dc2626}
-button{
-  padding:8px 14px;
+header h1{margin:0;font-size:20px}
+.logout{
+  background:var(--danger);
+  color:white;
+  padding:8px 16px;
   border-radius:8px;
   border:0;
   cursor:pointer;
 }
-.logout{background:#dc2626;color:white}
+.container{
+  max-width:1100px;
+  margin:30px auto;
+  padding:0 16px;
+}
+.card{
+  background:white;
+  padding:20px;
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  border:1px solid var(--border);
+}
+.vehicle{
+  padding:14px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  margin-bottom:10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.status{
+  font-weight:700;
+  font-size:14px;
+}
+.dispo{color:var(--success)}
+.mission{color:var(--warning)}
+.hs{color:var(--danger)}
+select{
+  padding:6px;
+  border-radius:8px;
+}
 </style>
 </head>
 
 <body>
+
 <header>
-  <h2>Dispatch Véhicules</h2>
+  <h1>Dispatch Véhicules</h1>
   <button class="logout" onclick="logout()">Déconnexion</button>
 </header>
 
 <div class="container">
   <div class="card">
-    <h3>Véhicules</h3>
+    <h2>Flotte de véhicules</h2>
     <div id="list"></div>
   </div>
 </div>
 
 <script>
-const user = JSON.parse(localStorage.currentUser || "null")
-if(!user) location.href="login.html"
+const user = JSON.parse(localStorage.user || "null")
+if(!user) location.href = "login.html"
 
+// Véhicules (exemple – extensible DB plus tard)
 let vehicles = [
   {name:"Ambulance 1", status:"dispo"},
   {name:"Ambulance 2", status:"mission"},
-  {name:"Véhicule SMUR", status:"hs"}
+  {name:"SMUR 1", status:"hs"},
+  {name:"Véhicule Commandement", status:"dispo"}
 ]
 
 function render(){
-  list.innerHTML = vehicles.map(v=>`
+  list.innerHTML = vehicles.map((v,i)=>`
     <div class="vehicle">
-      <span>${v.name}</span>
-      <span class="status ${v.status}">
-        ${v.status === "dispo" ? "Disponible" :
-          v.status === "mission" ? "En mission" : "HS"}
-      </span>
+      <div><strong>${v.name}</strong></div>
+      <div>
+        <span class="status ${v.status}">
+          ${v.status==="dispo"?"Disponible":v.status==="mission"?"En mission":"HS"}
+        </span>
+        <select onchange="setStatus(${i},this.value)">
+          <option value="dispo">Disponible</option>
+          <option value="mission">Mission</option>
+          <option value="hs">HS</option>
+        </select>
+      </div>
     </div>
   `).join("")
 }
 render()
 
-function logout(){
-  const users = JSON.parse(localStorage.users)
-  const u = users.find(x=>x.user===user.user)
-  if(u) u.presence=false
-  localStorage.users = JSON.stringify(users)
-  localStorage.removeItem("currentUser")
+function setStatus(i,val){
+  vehicles[i].status = val
+  render()
+}
+
+// LOGOUT MANUEL
+async function logout(){
+  await fetch("/api/logout",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ userId: user.id })
+  })
+  localStorage.clear()
   location.href="login.html"
 }
 
-// AUTO OFFLINE FERMETURE PAGE
+// LOGOUT AUTO (fermeture page)
 window.addEventListener("beforeunload",()=>{
-  const users = JSON.parse(localStorage.users)
-  const u = users.find(x=>x.user===user.user)
-  if(u) u.presence=false
-  localStorage.users = JSON.stringify(users)
+  navigator.sendBeacon(
+    "/api/logout",
+    JSON.stringify({ userId: user.id })
+  )
 })
 </script>
+
 </body>
 </html>
-
