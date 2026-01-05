@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Connexion Dispatch</title>
+<style>
+body{
+  font-family:Inter;
+  background:url('https://i.imgur.com/A6V1lhN.jpg') center/cover fixed;
+}
+.card{
+  width:380px;
+  margin:120px auto;
+  background:rgba(255,255,255,0.9);
+  padding:30px;
+  border-radius:14px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.15);
+}
+h2{color:#e11d48;text-align:center}
+input,button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border-radius:8px;
+  border:1px solid #fecaca;
+}
+button{
+  background:#e11d48;
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+}
+.error{color:#dc2626;margin-top:10px}
+</style>
+</head>
+
+<body>
+<div class="card">
+  <h2>Connexion Dispatch</h2>
+  <input id="user" placeholder="Utilisateur">
+  <input id="pass" type="password" placeholder="Mot de passe">
+  <button onclick="login()">Connexion</button>
+  <div id="err" class="error"></div>
+</div>
+
+<script>
+// FAKE DB
+if(!localStorage.users){
+  localStorage.users = JSON.stringify([
+    {user:"admin", pass:"admin", permission:"admin", presence:false},
+    {user:"dispatcher", pass:"dispatch", permission:"user", presence:false}
+  ])
+}
+
+function login(){
+  const users = JSON.parse(localStorage.users)
+  const u = users.find(x => x.user === user.value && x.pass === pass.value)
+
+  if(!u){
+    err.textContent = "Identifiants incorrects"
+    return
+  }
+
+  u.presence = true
+  localStorage.users = JSON.stringify(users)
+  localStorage.currentUser = JSON.stringify(u)
+
+  window.location.href = "index.html"
+}
+</script>
+</body>
+</html>
