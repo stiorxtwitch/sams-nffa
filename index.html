@@ -3,82 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dispatch Véhicules</title>
+<title>Dispatch NFFA</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-:root{
-  --primary:#e11d48;
-  --primary-light:#fee2e2;
-  --primary-dark:#991b1b;
-  --border:#fecaca;
-  --shadow:0 6px 18px rgba(225,29,72,0.08);
-  --success:#16a34a;
-  --warning:#ea580c;
-  --danger:#dc2626;
-}
 body{
-  font-family:Inter,system-ui;
   margin:0;
-  background:url('https://i.imgur.com/A6V1lhN.jpg') no-repeat center center fixed;
-  background-size:cover;
-}
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  background:rgba(255,255,255,0.7);
-  backdrop-filter:blur(4px);
-  z-index:-1;
+  min-height:100vh;
+  font-family:Inter,system-ui;
+  background:#fff1f2;
 }
 header{
-  background:linear-gradient(90deg,var(--primary),var(--primary-dark));
+  background:linear-gradient(90deg,#e11d48,#991b1b);
   color:white;
   padding:16px 24px;
   display:flex;
   justify-content:space-between;
   align-items:center;
-  box-shadow:0 4px 12px rgba(0,0,0,.2);
 }
-header h1{margin:0;font-size:20px}
-.logout{
-  background:var(--danger);
+button{
+  background:#dc2626;
   color:white;
-  padding:8px 16px;
-  border-radius:8px;
   border:0;
+  padding:10px 16px;
+  border-radius:10px;
   cursor:pointer;
 }
-.container{
-  max-width:1100px;
-  margin:30px auto;
-  padding:0 16px;
-}
+button:hover{background:#b91c1c}
 .card{
   background:white;
-  padding:20px;
-  border-radius:14px;
-  box-shadow:var(--shadow);
-  border:1px solid var(--border);
-}
-.vehicle{
-  padding:14px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  margin-bottom:10px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
-.status{
-  font-weight:700;
-  font-size:14px;
-}
-.dispo{color:var(--success)}
-.mission{color:var(--warning)}
-.hs{color:var(--danger)}
-select{
-  padding:6px;
-  border-radius:8px;
+  max-width:600px;
+  margin:40px auto;
+  padding:24px;
+  border-radius:16px;
+  box-shadow:0 10px 25px rgba(0,0,0,.12);
 }
 </style>
 </head>
@@ -86,71 +45,46 @@ select{
 <body>
 
 <header>
-  <h1>Dispatch Véhicules</h1>
-  <button class="logout" onclick="logout()">Déconnexion</button>
+  <strong>Dispatch NFFA</strong>
+  <button onclick="logout()">Déconnexion</button>
 </header>
 
-<div class="container">
-  <div class="card">
-    <h2>Flotte de véhicules</h2>
-    <div id="list"></div>
-  </div>
+<div class="card">
+  <h2 id="welcome"></h2>
+  <p><strong>Permission :</strong> <span id="perm"></span></p>
+  <p><strong>Présence :</strong> <span style="color:green">EN SERVICE</span></p>
 </div>
 
 <script>
-const user = JSON.parse(localStorage.user || "null")
-if(!user) location.href = "login.html"
+const supabase = supabaseJs.createClient(
+  "https://gktawbaposndfxijkxdk.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk"
+)
 
-// Véhicules (exemple – extensible DB plus tard)
-let vehicles = [
-  {name:"Ambulance 1", status:"dispo"},
-  {name:"Ambulance 2", status:"mission"},
-  {name:"SMUR 1", status:"hs"},
-  {name:"Véhicule Commandement", status:"dispo"}
-]
-
-function render(){
-  list.innerHTML = vehicles.map((v,i)=>`
-    <div class="vehicle">
-      <div><strong>${v.name}</strong></div>
-      <div>
-        <span class="status ${v.status}">
-          ${v.status==="dispo"?"Disponible":v.status==="mission"?"En mission":"HS"}
-        </span>
-        <select onchange="setStatus(${i},this.value)">
-          <option value="dispo">Disponible</option>
-          <option value="mission">Mission</option>
-          <option value="hs">HS</option>
-        </select>
-      </div>
-    </div>
-  `).join("")
-}
-render()
-
-function setStatus(i,val){
-  vehicles[i].status = val
-  render()
+const user = JSON.parse(localStorage.getItem("nffa_user"))
+if(!user){
+  location.href = "login.html"
 }
 
-// LOGOUT MANUEL
-async function logout(){
-  await fetch("/api/logout",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({ userId: user.id })
-  })
-  localStorage.clear()
-  location.href="login.html"
-}
+welcome.textContent = `Bienvenue ${user.user}`
+perm.textContent = user.permission
 
-// LOGOUT AUTO (fermeture page)
-window.addEventListener("beforeunload",()=>{
+// présence OFF si onglet fermé
+window.addEventListener("beforeunload", () => {
   navigator.sendBeacon(
-    "/api/logout",
-    JSON.stringify({ userId: user.id })
+    "https://gktawbaposndfxijkxdk.supabase.co/rest/v1/users-nffa?id=eq." + user.id,
+    JSON.stringify({ presence:false })
   )
 })
+
+async function logout(){
+  await supabase.from("users-nffa")
+    .update({ presence:false })
+    .eq("id", user.id)
+
+  localStorage.removeItem("nffa_user")
+  location.href="login.html"
+}
 </script>
 
 </body>
