@@ -68,7 +68,7 @@ button:hover { background: #be123c; }
   <h2>Connexion Dispatch</h2>
   <input id="user" placeholder="Utilisateur">
   <input id="password" type="password" placeholder="Mot de passe">
-  <button onclick="login()">Se connecter</button>
+  <button id="loginBtn">Se connecter</button>
   <div id="error"></div>
 </div>
 
@@ -76,31 +76,45 @@ button:hover { background: #be123c; }
 const supabase = supabaseJs.createClient(
   "https://gktawbaposndfxijkxdk.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk"
-)
+);
 
-async function login() {
-  error.textContent = "";
-  const u = user.value.trim();
-  const p = password.value.trim();
-  if (!u || !p) { error.textContent = "Champs requis"; return; }
+const loginBtn = document.getElementById("loginBtn");
+loginBtn.addEventListener("click", async () => {
+  const username = document.getElementById("user").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const errorDiv = document.getElementById("error");
+  errorDiv.textContent = "";
 
-  const { data, error: err } = await supabase
-    .from("users-nffa")
-    .select("*")
-    .eq("user", u)
-    .eq("password", p)
-    .single();
+  if(!username || !password){ errorDiv.textContent="Champs requis"; return; }
 
-  if (err || !data) { error.textContent = "Identifiants incorrects"; return; }
+  try {
+    // récupérer l'utilisateur par login
+    const { data, error } = await supabase
+      .from("users-nffa")
+      .select("*")
+      .eq("user", username)
+      .single();
 
-  // Activer présence
-  await supabase.from("users-nffa")
-    .update({ presence: true, last_seen: new Date() })
-    .eq("id", data.id);
+    if(error || !data){ errorDiv.textContent="Utilisateur introuvable"; return; }
 
-  localStorage.setItem("nffa_user", JSON.stringify(data));
-  location.href = "index.html";
-}
+    // vérifier le mot de passe
+    if(data.password !== password){
+      errorDiv.textContent="Mot de passe incorrect"; return;
+    }
+
+    // activer présence
+    await supabase.from("users-nffa")
+      .update({ presence:true, last_seen:new Date() })
+      .eq("id", data.id);
+
+    // stocker la session
+    localStorage.setItem("nffa_user", JSON.stringify(data));
+    location.href="index.html";
+
+  } catch(err) {
+    errorDiv.textContent="Erreur: "+err.message;
+  }
+});
 </script>
 </body>
 </html>
