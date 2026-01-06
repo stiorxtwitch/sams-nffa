@@ -8,19 +8,62 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
-body{margin:0;font-family:Inter,system-ui;background:#fff1f2;}
-header{background:linear-gradient(90deg,#e11d48,#991b1b);color:white;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;}
-button{background:#dc2626;color:white;border:0;padding:10px 16px;border-radius:10px;cursor:pointer;}
-button:hover{background:#b91c1c;}
-.card{background:white;max-width:800px;margin:40px auto;padding:24px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,.12);}
-.user-item{padding:10px;border:1px solid #fecaca;border-radius:10px;margin:6px 0;display:flex;justify-content:space-between;align-items:center;}
-.user-item.admin{background:#fee2e2;}
-.user-item.dispatcher{background:#fee2e2aa;}
+body {
+  font-family: Inter, system-ui;
+  margin:0;
+  min-height:100vh;
+  background: url('https://i.imgur.com/A6V1lhN.jpg') no-repeat center center fixed;
+  background-size: cover;
+  color:#1f1f1f;
+}
+body::before {
+  content: "";
+  position: fixed;
+  top:0; left:0; right:0; bottom:0;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(4px);
+  z-index: -1;
+}
+header {
+  background: linear-gradient(90deg,#e11d48,#991b1b);
+  color:white;
+  padding:16px 24px;
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+}
+button {
+  background:#dc2626;
+  color:white;
+  border:0;
+  padding:10px 16px;
+  border-radius:10px;
+  cursor:pointer;
+}
+button:hover { background:#b91c1c; }
+.card {
+  max-width:800px;
+  margin:40px auto;
+  padding:24px;
+  border-radius:16px;
+  background: rgba(255,255,255,0.95);
+  box-shadow:0 10px 25px rgba(0,0,0,.12);
+}
+.user-item {
+  padding:10px;
+  border:1px solid #fecaca;
+  border-radius:10px;
+  margin:6px 0;
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.user-item.admin { background:#fee2e2; }
+.user-item.dispatcher { background:#fee2e2aa; }
 </style>
 </head>
 
 <body>
-
 <header>
   <strong>Dispatch NFFA</strong>
   <button onclick="logout()">Déconnexion</button>
@@ -37,43 +80,46 @@ const supabase = supabaseJs.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk"
 )
 
-let user = JSON.parse(localStorage.getItem("nffa_user"))
-if(!user) location.href="login.html"
-welcome.textContent = `Bienvenue ${user.user} (${user.permission})`
+let user = JSON.parse(localStorage.getItem("nffa_user"));
+if(!user) location.href="login.html";
+welcome.textContent = `Bienvenue ${user.user} (${user.permission})`;
 
-async function loadUsers(){
-  const { data } = await supabase.from("users-nffa").select("*")
+// Charger tous les utilisateurs
+async function loadUsers() {
+  const { data } = await supabase.from("users-nffa").select("*");
   userList.innerHTML = data.map(u=>{
-    let role=u.permission
-    let cls=role==="admin"?"admin":role==="dispatcher"?"dispatcher":"user"
-    let btn=""
-    // Admin peut désigner dispatcher
-    if(user.permission==="admin" && role!=="admin"){
-      btn=` <button onclick="setDispatcher(${u.id})">Désigner dispatcher</button>`
+    let cls = u.permission==="admin"?"admin":u.permission==="dispatcher"?"dispatcher":"user";
+    let btn = "";
+    if(user.permission==="admin" && u.permission!=="admin"){
+      btn = ` <button onclick="setDispatcher(${u.id})">Désigner dispatcher</button>`;
     }
-    return `<div class="user-item ${cls}">${u.user} - ${role} - Présence: ${u.presence? "✅":"❌"}${btn}</div>`
-  }).join("")
+    return `<div class="user-item ${cls}">${u.user} - ${u.permission} - Présence: ${u.presence?"✅":"❌"}${btn}</div>`;
+  }).join("");
 }
 
+// Désigner dispatcher (admin seulement)
 async function setDispatcher(id){
-  // reset anciens dispatcher
-  await supabase.from("users-nffa").update({permission:"user"}).eq("permission","dispatcher")
-  await supabase.from("users-nffa").update({permission:"dispatcher"}).eq("id",id)
-  loadUsers()
+  await supabase.from("users-nffa").update({permission:"user"}).eq("permission","dispatcher");
+  await supabase.from("users-nffa").update({permission:"dispatcher"}).eq("id",id);
+  loadUsers();
 }
 
+// Présence auto FALSE si onglet fermé
 window.addEventListener("beforeunload", async () => {
-  await supabase.from("users-nffa").update({presence:false}).eq("id",user.id)
-})
+  navigator.sendBeacon(
+    `https://gktawbaposndfxijkxdk.supabase.co/rest/v1/users-nffa?id=eq.${user.id}`,
+    JSON.stringify({presence:false})
+  );
+});
 
-async function logout(){
-  await supabase.from("users-nffa").update({presence:false}).eq("id",user.id)
-  localStorage.removeItem("nffa_user")
-  location.href="login.html"
+// Logout
+async function logout() {
+  await supabase.from("users-nffa").update({presence:false}).eq("id",user.id);
+  localStorage.removeItem("nffa_user");
+  location.href="login.html";
 }
 
-loadUsers()
+loadUsers();
 </script>
-
 </body>
 </html>
