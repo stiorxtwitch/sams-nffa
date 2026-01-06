@@ -1,120 +1,123 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Login Dispatch NFFA</title>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<style>
-body {
-  font-family: Inter, system-ui;
-  margin: 0;
-  min-height: 100vh;
-  background: url('https://i.imgur.com/A6V1lhN.jpg') no-repeat center center fixed;
-  background-size: cover;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-body::before {
-  content: "";
-  position: fixed;
-  top:0; left:0; right:0; bottom:0;
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(4px);
-  z-index: -1;
-}
-.card {
-  background: rgba(255,255,255,0.95);
-  padding: 32px;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.2);
-  width: 360px;
-  text-align: center;
-}
-h2 { color: #e11d48; margin-top:0; }
-input {
-  width: 100%;
-  padding: 12px;
-  margin: 10px 0;
-  border-radius: 10px;
-  border: 1px solid #fecaca;
-  font-size: 14px;
-}
-input:focus {
-  outline: none;
-  border-color: #e11d48;
-  box-shadow: 0 0 0 3px rgba(225,29,72,.15);
-}
-button {
-  width: 100%;
-  padding: 12px;
-  background: #e11d48;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-}
-button:hover { background: #be123c; }
-#error { color: #dc2626; margin-top: 10px; font-size: 14px; }
-</style>
-</head>
-
-<body>
-<div class="card">
-  <h2>Connexion Dispatch</h2>
-  <input id="user" placeholder="Utilisateur">
-  <input id="password" type="password" placeholder="Mot de passe">
-  <button id="loginBtn">Se connecter</button>
-  <div id="error"></div>
-</div>
-
-<script>
-const supabase = supabaseJs.createClient(
-  "https://gktawbaposndfxijkxdk.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk"
-);
-
-const loginBtn = document.getElementById("loginBtn");
-loginBtn.addEventListener("click", async () => {
-  const username = document.getElementById("user").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const errorDiv = document.getElementById("error");
-  errorDiv.textContent = "";
-
-  if(!username || !password){ errorDiv.textContent="Champs requis"; return; }
-
-  try {
-    // récupérer l'utilisateur par login
-    const { data, error } = await supabase
-      .from("users-nffa")
-      .select("*")
-      .eq("user", username)
-      .single();
-
-    if(error || !data){ errorDiv.textContent="Utilisateur introuvable"; return; }
-
-    // vérifier le mot de passe
-    if(data.password !== password){
-      errorDiv.textContent="Mot de passe incorrect"; return;
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login Dispatch NFFA</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: url('https://i.imgur.com/A6V1lhN.jpg') no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(4px);
+      z-index: -1;
+    }
+    .card {
+      background: rgba(255,255,255,0.95);
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2);
+      width: 360px;
+      text-align: center;
+    }
+    h2 { color: #e11d48; margin-top: 0; }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: 1px solid #fecaca;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input:focus {
+      outline: none;
+      border-color: #e11d48;
+      box-shadow: 0 0 0 3px rgba(225,29,72,.15);
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #e11d48;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #be123c; }
+    #error { color: #dc2626; margin-top: 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Connexion Dispatch</h2>
+    <input id="user" placeholder="Utilisateur">
+    <input id="password" type="password" placeholder="Mot de passe">
+    <button id="loginBtn">Se connecter</button>
+    <div id="error"></div>
+  </div>
 
-    // activer présence
-    await supabase.from("users-nffa")
-      .update({ presence:true, last_seen:new Date() })
-      .eq("id", data.id);
+  <script>
+    const { createClient } = supabaseJs;
+    const supabase = createClient(
+      'https://gktawbaposndfxijkxdk.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk'
+    );
 
-    // stocker la session
-    localStorage.setItem("nffa_user", JSON.stringify(data));
-    location.href="index.html";
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const username = document.getElementById("user").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const errorDiv = document.getElementById("error");
+      errorDiv.textContent = "";
 
-  } catch(err) {
-    errorDiv.textContent="Erreur: "+err.message;
-  }
-});
-</script>
+      if (!username || !password) {
+        errorDiv.textContent = "Champs requis";
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("users-nffa")
+          .select("*")
+          .eq("user", username)
+          .single();
+
+        if (error || !data) {
+          errorDiv.textContent = "Utilisateur introuvable";
+          return;
+        }
+
+        if (data.password !== password) {
+          errorDiv.textContent = "Mot de passe incorrect";
+          return;
+        }
+
+        // Mettre à jour la présence
+        await supabase
+          .from("users-nffa")
+          .update({ presence: true, last_seen: new Date().toISOString() })
+          .eq("id", data.id);
+
+        // Sauvegarder la session
+        localStorage.setItem("nffa_user", JSON.stringify(data));
+        location.href = "index.html";
+      } catch (err) {
+        errorDiv.textContent = "Erreur : " + err.message;
+      }
+    });
+  </script>
 </body>
 </html>
