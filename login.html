@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login Dispatch NFFA</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
       font-family: Inter, system-ui, sans-serif;
@@ -32,7 +31,10 @@
       width: 360px;
       text-align: center;
     }
-    h2 { color: #e11d48; margin-top: 0; }
+    h2 {
+      color: #e11d48;
+      margin-top: 0;
+    }
     input {
       width: 100%;
       padding: 12px;
@@ -56,66 +58,94 @@
       border-radius: 10px;
       font-weight: 600;
       cursor: pointer;
+      margin-top: 10px;
     }
-    button:hover { background: #be123c; }
-    #error { color: #dc2626; margin-top: 10px; font-size: 14px; }
+    button:hover {
+      background: #be123c;
+    }
+    #error {
+      color: #dc2626;
+      margin-top: 10px;
+      font-size: 14px;
+      display: none;
+      background: #fee2e2;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #fecaca;
+    }
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>Connexion Dispatch</h2>
-    <input id="user" placeholder="Utilisateur">
-    <input id="password" type="password" placeholder="Mot de passe">
-    <button id="loginBtn">Se connecter</button>
+    <h2>Connexion Dispatch NFFA</h2>
+    <input id="username" placeholder="Utilisateur" required>
+    <input id="password" type="password" placeholder="Mot de passe" required>
     <div id="error"></div>
+    <button id="loginBtn">Se connecter</button>
   </div>
 
-  <script>
-    const { createClient } = supabaseJs;
-    const supabase = createClient(
-      'https://gktawbaposndfxijkxdk.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk'
-    );
+  <!-- Utilisation d'un module ES pour importer Supabase proprement -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    document.getElementById("loginBtn").addEventListener("click", async () => {
-      const username = document.getElementById("user").value.trim();
-      const password = document.getElementById("password").value.trim();
-      const errorDiv = document.getElementById("error");
-      errorDiv.textContent = "";
+    const SUPABASE_URL = 'https://gktawbaposndfxijkxdk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errorEl = document.getElementById('error');
+
+      // Réinitialiser l'erreur
+      errorEl.textContent = '';
+      errorEl.style.display = 'none';
 
       if (!username || !password) {
-        errorDiv.textContent = "Champs requis";
+        errorEl.textContent = 'Veuillez remplir tous les champs';
+        errorEl.style.display = 'block';
         return;
       }
 
       try {
+        // Recherche de l'utilisateur
         const { data, error } = await supabase
-          .from("users-nffa")
-          .select("*")
-          .eq("user", username)
+          .from('users-nffa')
+          .select('*')
+          .eq('user', username)
           .single();
 
         if (error || !data) {
-          errorDiv.textContent = "Utilisateur introuvable";
-          return;
+          throw new Error('Utilisateur introuvable');
         }
 
         if (data.password !== password) {
-          errorDiv.textContent = "Mot de passe incorrect";
-          return;
+          throw new Error('Mot de passe incorrect');
         }
 
-        // Mettre à jour la présence
+        // Mise à jour de la présence
         await supabase
-          .from("users-nffa")
-          .update({ presence: true, last_seen: new Date().toISOString() })
-          .eq("id", data.id);
+          .from('users-nffa')
+          .update({
+            presence: true,
+            last_seen: new Date().toISOString()
+          })
+          .eq('id', data.id);
 
-        // Sauvegarder la session
-        localStorage.setItem("nffa_user", JSON.stringify(data));
-        location.href = "index.html";
+        // Sauvegarde de la session
+        localStorage.setItem('nffa_user', JSON.stringify({
+          id: data.id,
+          user: data.user,
+          permission: data.permission
+        }));
+
+        // Redirection
+        window.location.href = 'index.html';
+
       } catch (err) {
-        errorDiv.textContent = "Erreur : " + err.message;
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
       }
     });
   </script>
