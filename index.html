@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dispatch NFFA</title>
+  <title>Dispatch NFFA - SAMS</title>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -60,7 +60,7 @@
       font-weight: 500;
     }
 
-    /* Dispatcher en haut */
+    /* Dispatcher */
     #dispatcher-container {
       width: 100%;
       max-width: 1400px;
@@ -77,7 +77,7 @@
       box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     }
 
-    /* Tableau blanc */
+    /* Board */
     #board {
       display: flex;
       flex-wrap: wrap;
@@ -107,10 +107,11 @@
       border: 3px solid #e11d48;
       border-radius: 16px;
       background: #fef2f2;
-      min-height: 300px;
+      min-height: 340px;
       padding: 12px;
       text-align: center;
       box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+      transition: background 0.3s;
     }
     .members {
       min-height: 180px;
@@ -137,49 +138,75 @@
       font-weight: bold;
     }
 
-    /* Input localisation */
-    .patrol-location {
-      margin-top: 15px;
+    /* Header patrouille */
+    .patrol-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
     }
-    .patrol-location select {
+    .patrol-header h3 {
+      margin: 0;
+      cursor: pointer;
+    }
+    .patrol-statut button {
+      background: #6b7280;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    /* Localisation & véhicule */
+    .patrol-controls {
+      margin-top: 10px;
+    }
+    .patrol-controls select {
       width: 90%;
       padding: 8px;
       border: 1px solid #fecaca;
       border-radius: 8px;
       margin-bottom: 8px;
     }
-    .patrol-location button {
+    .patrol-controls button {
       background: #e11d48;
       padding: 6px 12px;
       border: none;
       border-radius: 8px;
       color: white;
+      font-size: 14px;
     }
 
-    /* Modal */
-    #user-modal, #modal-backdrop {
+    /* Couleurs statut */
+    .patrol-zone.en-patrouille { background: #d1fae5; border-color: #10b981; }
+    .patrol-zone.en-intervention { background: #fee2e2; border-color: #ef4444; }
+    .patrol-zone.stand-by { background: #fef9c3; border-color: #f59e0b; }
+    .patrol-zone.en-attente { background: #f3f4f6; border-color: #6b7280; }
+
+    /* Modals */
+    .modal {
       display: none;
       position: fixed;
-      z-index: 1000;
-    }
-    #modal-backdrop {
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5);
-    }
-    #user-modal {
-      top: 50%; left: 50%;
+      top: 50%;
+      left: 50%;
       transform: translate(-50%, -50%);
       background: white;
       padding: 24px;
       border-radius: 16px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      z-index: 1001;
       text-align: center;
       max-width: 400px;
+    }
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
     }
 
     /* Carte */
     #map-container {
-      height: 600px;
+      height: 700px;
       margin: 40px auto;
       max-width: 1400px;
       border-radius: 16px;
@@ -190,7 +217,7 @@
 </head>
 <body>
   <header>
-    <strong>Dispatch NFFA</strong>
+    <strong>Dispatch NFFA - SAMS</strong>
     <button id="logoutBtn">Déconnexion</button>
   </header>
 
@@ -219,13 +246,39 @@
     <div id="patrol-map"></div>
   </div>
 
-  <div id="modal-backdrop"></div>
-  <div id="user-modal">
+  <!-- Modals -->
+  <div class="modal-backdrop" id="modal-backdrop"></div>
+
+  <div class="modal" id="user-modal">
     <h3>Fiche Agent</h3>
     <p id="user-name"></p>
     <p id="user-rank"></p>
     <p id="user-unit"></p>
-    <button onclick="closeModal()">Fermer</button>
+    <button onclick="closeModal('user-modal')">Fermer</button>
+  </div>
+
+  <div class="modal" id="statut-modal">
+    <h3>Statut de la patrouille</h3>
+    <select id="statut-select">
+      <option value="en-attente">En Attente de Patrouille</option>
+      <option value="stand-by">Stand-By</option>
+      <option value="en-patrouille">En Patrouille</option>
+      <option value="en-intervention">En Intervention</option>
+    </select>
+    <button onclick="saveStatut()">Sauvegarder</button>
+  </div>
+
+  <div class="modal" id="vehicle-modal">
+    <h3>Type de véhicule</h3>
+    <select id="vehicle-select">
+      <option value="">Aucun</option>
+      <option value="Voiture de patrouille">Voiture de patrouille</option>
+      <option value="Moto">Moto</option>
+      <option value="Véhicule banalisé">Véhicule banalisé</option>
+      <option value="4x4">4x4</option>
+      <option value="Hélicoptère">Hélicoptère</option>
+    </select>
+    <button onclick="saveVehicle()">Sauvegarder</button>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -242,79 +295,83 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Coordonnées rues (basé sur l'image analysée - j'ai estimé pour les principales visibles)
+    // Liste des lieux (tu peux ajouter autant que tu veux)
+    const streets = [
+      "", "Paleto Bay", "Mount Chiliad", "Grapeseed", "Sandy Shores", "Alamo Sea", "Raton Canyon", "Tongva Hills", "Banham Canyon", "Vinewood Hills", "Rockford Hills", "Downtown Vinewood", "Downtown", "Vespucci Beach", "Del Perro", "Little Seoul", "South Los Santos", "Los Santos International Airport", "Port of Los Santos"
+    ];
+
+    // Coordonnées normalisées 0-1 (basées sur ton image cCrStMo.png)
     const streetCoords = {
-      "Mount Chiliad": [0.2, 0.5], 
-      "Paleto Bay": [0.15, 0.4],
-      "Alamo Sea": [0.3, 0.6],
-      "Sandy Shores": [0.35, 0.65],
-      "Grapeseed": [0.25, 0.7],
-      "Mount Gordo": [0.2, 0.8],
-      "Raton Canyon": [0.25, 0.5],
-      "Mount Josiah": [0.3, 0.4],
-      "Zancudo River": [0.4, 0.4],
-      "Tongva Hills": [0.45, 0.3],
-      "Banham Canyon": [0.5, 0.25],
-      "Pacific Bluffs": [0.55, 0.2],
-      "Richman": [0.6, 0.3],
-      "Vinewood Hills": [0.65, 0.4],
-      "Rockford Hills": [0.6, 0.4],
-      "Downtown Vinewood": [0.7, 0.5],
-      "Downtown": [0.75, 0.55],
-      "Vespucci Beach": [0.8, 0.45],
-      "Del Perro": [0.85, 0.4],
-      "La Puerta": [0.9, 0.5],
-      "Los Santos International Airport": [0.95, 0.6],
-      "Port of Los Santos": [0.9, 0.65],
-      "Palomino Highlands": [0.8, 0.75],
-      "Tataviam Mountains": [0.7, 0.8],
-      "San Chianski Mountain Range": [0.6, 0.85],
-      // Ajoute plus si besoin
+      "Paleto Bay": [0.15, 0.15],
+      "Mount Chiliad": [0.25, 0.35],
+      "Grapeseed": [0.35, 0.25],
+      "Sandy Shores": [0.55, 0.35],
+      "Alamo Sea": [0.50, 0.40],
+      "Raton Canyon": [0.30, 0.45],
+      "Tongva Hills": [0.45, 0.55],
+      "Banham Canyon": [0.50, 0.65],
+      "Vinewood Hills": [0.60, 0.50],
+      "Rockford Hills": [0.65, 0.55],
+      "Downtown Vinewood": [0.70, 0.50],
+      "Downtown": [0.75, 0.60],
+      "Vespucci Beach": [0.70, 0.70],
+      "Del Perro": [0.75, 0.70],
+      "Little Seoul": [0.75, 0.65],
+      "South Los Santos": [0.80, 0.75],
+      "Los Santos International Airport": [0.90, 0.80],
+      "Port of Los Santos": [0.85, 0.85]
     };
 
     let patrolMap = null;
     let markers = {};
+    let currentPatrolNum = null;
 
     function initMap() {
-      patrolMap = L.map('patrol-map').setView([0.5, 0.5], 3);
+      patrolMap = L.map('patrol-map', { crs: L.CRS.Simple, minZoom: 2, maxZoom: 6 });
 
-      // Nouvelle image de la carte (la première que tu as fournie)
+      // Ta carte satellite
       const mapUrl = 'https://i.imgur.com/cCrStMo.png';
-      L.imageOverlay(mapUrl, [[0, 0], [1, 1]]).addTo(patrolMap);
+      const imageBounds = [[0, 0], [1, 1]];
+      L.imageOverlay(mapUrl, imageBounds).addTo(patrolMap);
 
+      patrolMap.fitBounds(imageBounds);
       setTimeout(() => patrolMap.invalidateSize(), 500);
     }
 
     async function loadPatrolMarkers() {
       if (!patrolMap) return;
 
-      const { data: patrols } = await supabase
-        .from("patrouille")
-        .select("*");
+      const { data: patrols } = await supabase.from("patrouille").select("*");
 
+      // Nettoyage des anciens marqueurs
       Object.values(markers).forEach(m => patrolMap.removeLayer(m));
       markers = {};
 
-      patrols.forEach(p => {
-        let rue = p.localisation?.trim();
-        let coord;
-        if (rue && streetCoords[rue]) {
-          coord = streetCoords[rue];
-        } else {
-          coord = [0.1, 0.1]; // Position sur le côté (hors ville)
-        }
-        const marker = L.marker(coord, {
-          icon: L.icon({
-            iconUrl: 'https://i.imgur.com/VTKJQyv.png', // Icône fournie, redimensionnée
-            iconSize: [40, 40], // Taille réduite
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40]
-          })
-        }).addTo(patrolMap)
-          .bindTooltip(p.patrol_name.replace('_', ' '), { permanent: false, direction: 'top' }); // Nom sur hover
+      if (patrols) {
+        patrols.forEach(p => {
+          let coord = [0.95, 0.05]; // Position "hors carte" (bas gauche) si pas de localisation
+          if (p.localisation && streetCoords[p.localisation]) {
+            coord = streetCoords[p.localisation];
+          }
 
-        markers[p.patrol_name] = marker;
-      });
+          const icon = L.icon({
+            iconUrl: 'https://i.imgur.com/VTKJQyv.png', // Ton écusson SAMS
+            iconSize: [45, 45],
+            iconAnchor: [22, 22],
+            tooltipAnchor: [0, -20]
+          });
+
+          const marker = L.marker(coord, { icon })
+            .addTo(patrolMap)
+            .bindTooltip(p.patrol_name.replace('_', ' '), {
+              permanent: false,
+              direction: 'top',
+              className: 'leaflet-tooltip-own'
+            });
+
+          markers[p.patrol_name] = marker;
+        });
+      }
     }
 
     async function loadUsersList() {
@@ -334,6 +391,41 @@
       await supabase.from("users-nffa").update({ permission: "dispatcher", patrol: 0 }).eq("id", id);
       loadBoard();
     };
+
+    async function createBoardStructure() {
+      const { data: patrols } = await supabase.from("patrouille").select("*");
+
+      document.querySelector(".patrols").innerHTML = '';
+
+      for (let i = 1; i <= 10; i++) {
+        const patrolName = `Patrouille_${i}`;
+        const div = document.createElement("div");
+        div.className = "patrol-zone";
+        const patrolData = patrols?.find(p => p.patrol_name === patrolName) || {};
+
+        div.innerHTML = `
+          <div class="patrol-header">
+            <h3 ondblclick="openVehicleModal(${i})">Patrouille ${i}</h3>
+            <div class="patrol-statut">
+              <button onclick="openStatutModal(${i})">Statut</button>
+            </div>
+          </div>
+          <div class="members"></div>
+          <div class="patrol-controls">
+            <select id="loc-${i}">
+              ${streets.map(s => `<option value="${s}" ${patrolData.localisation === s ? 'selected' : ''}>${s || 'Aucune localisation'}</option>`).join('')}
+            </select>
+            <button onclick="updateLocation(${i})">Mettre à jour localisation</button>
+          </div>
+        `;
+
+        if (patrolData.statut) {
+          div.classList.add(patrolData.statut);
+        }
+
+        document.querySelector(".patrols").appendChild(div);
+      }
+    }
 
     async function loadBoard() {
       const { data: fresh } = await supabase.from("users-nffa").select("*").eq("id", currentUser.id).single();
@@ -366,20 +458,77 @@
       initDragAndDrop();
     }
 
+    window.openStatutModal = function(num) {
+      currentPatrolNum = num;
+      document.getElementById("statut-modal").style.display = "block";
+      document.getElementById("modal-backdrop").style.display = "block";
+    };
+
+    window.saveStatut = async function() {
+      const statut = document.getElementById("statut-select").value;
+      const patrolName = `Patrouille_${currentPatrolNum}`;
+
+      const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
+      if (existing) {
+        await supabase.from("patrouille").update({ statut }).eq("id", existing.id);
+      } else {
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, statut });
+      }
+
+      closeModal("statut-modal");
+      createBoardStructure();
+      loadBoard();
+    };
+
+    window.openVehicleModal = function(num) {
+      currentPatrolNum = num;
+      document.getElementById("vehicle-modal").style.display = "block";
+      document.getElementById("modal-backdrop").style.display = "block";
+    };
+
+    window.saveVehicle = async function() {
+      const vehicle = document.getElementById("vehicle-select").value;
+      const patrolName = `Patrouille_${currentPatrolNum}`;
+
+      const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
+      if (existing) {
+        await supabase.from("patrouille").update({ vehicle }).eq("id", existing.id);
+      } else {
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, vehicle });
+      }
+
+      closeModal("vehicle-modal");
+    };
+
+    window.updateLocation = async function(num) {
+      const select = document.getElementById(`loc-${num}`);
+      const localisation = select.value || null;
+      const patrolName = `Patrouille_${num}`;
+
+      const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
+      if (existing) {
+        await supabase.from("patrouille").update({ localisation }).eq("id", existing.id);
+      } else {
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, localisation });
+      }
+
+      loadPatrolMarkers();
+    };
+
     async function showUserInfo(id) {
       const { data } = await supabase.from("users-nffa").select("user, rank, unit").eq("id", id).single();
       if (data) {
         document.getElementById("user-name").textContent = `Nom: ${data.user}`;
         document.getElementById("user-rank").textContent = `Grade: ${data.rank || 'Non défini'}`;
         document.getElementById("user-unit").textContent = `Unité: ${data.unit || 'Non définie'}`;
-        document.getElementById("user-modal").style.display = 'block';
-        document.getElementById("modal-backdrop").style.display = 'block';
+        document.getElementById("user-modal").style.display = "block";
+        document.getElementById("modal-backdrop").style.display = "block";
       }
     }
 
-    window.closeModal = () => {
-      document.getElementById("user-modal").style.display = 'none';
-      document.getElementById("modal-backdrop").style.display = 'none';
+    window.closeModal = function(modalId) {
+      document.getElementById(modalId).style.display = "none";
+      document.getElementById("modal-backdrop").style.display = "none";
     };
 
     function initDragAndDrop() {
@@ -423,7 +572,7 @@
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
       localStorage.removeItem("nffa_user");
-      location.href = "login.html";
+      window.location.href = "login.html";
     });
 
     window.addEventListener("beforeunload", () => {
