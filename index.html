@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dispatch NFFA</title>
+  <!-- CDN pour Sortable.js (pour drag and drop multi-zones) -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <style>
     body {
       font-family: Inter, system-ui, sans-serif;
@@ -58,7 +60,69 @@
     .user-item.admin { background: #fee2e2; }
     .user-item.dispatcher { background: #fee2e2aa; }
 
-    /* Style du message de rappel */
+    /* Styles pour le tableau blanc */
+    #board {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 16px;
+      margin: 20px auto;
+      max-width: 1200px;
+    }
+    .drop-zone {
+      min-width: 200px;
+      min-height: 150px;
+      padding: 10px;
+      border: 2px dashed #fecaca;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .dispatcher-zone {
+      position: absolute;
+      top: 100px;
+      left: 20px;
+      width: 200px;
+    }
+    .available-zone {
+      width: 250px;
+      height: 400px;
+      overflow-y: auto;
+    }
+    .patrols {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 20px;
+      width: 100%;
+    }
+    .patrol-zone {
+      border: 2px solid #e11d48;
+      padding: 10px;
+      border-radius: 10px;
+      background: #fee2e2;
+      min-height: 200px;
+    }
+    .user-tag {
+      padding: 8px 12px;
+      margin: 4px 0;
+      background: #fecaca;
+      border-radius: 8px;
+      cursor: grab;
+      user-select: none;
+    }
+    .slot {
+      min-height: 40px;
+      margin: 4px 0;
+      border-bottom: 1px dotted #ccc;
+    }
+    .slot.leader {
+      font-weight: bold;
+      color: #991b1b;
+    }
+
+    /* Message de rappel */
     .warning-message {
       background: #fee2e2;
       border: 1px solid #fecaca;
@@ -79,13 +143,23 @@
   </header>
   <div class="card">
     <h2 id="welcome"></h2>
-
-    <!-- Message ajouté ici -->
     <div class="warning-message">
       ⚠️ Merci de bien cliquer sur « Déconnexion » avant de quitter ou fermer l'onglet pour mettre à jour votre statut correctement.
     </div>
-
     <div id="userList"></div>
+  </div>
+
+  <!-- Tableau blanc ajouté ici -->
+  <div id="board">
+    <div id="dispatcher-zone" class="drop-zone dispatcher-zone">
+      <h3>Dispatcher</h3>
+    </div>
+    <div id="available-users" class="drop-zone available-zone">
+      <h3>Utilisateurs disponibles</h3>
+    </div>
+    <div class="patrols">
+      <!-- Génération dynamique des patrouilles en JS -->
+    </div>
   </div>
 
   <script type="module">
@@ -96,7 +170,6 @@
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Récupération de l'utilisateur connecté
     let currentUser = JSON.parse(localStorage.getItem("nffa_user"));
     if (!currentUser) {
       window.location.href = "login.html";
@@ -104,17 +177,13 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Chargement de la liste des utilisateurs
+    // Charger la liste des utilisateurs (non interactive, pour référence)
     async function loadUsers() {
-      const { data, error } = await supabase
-        .from("users-nffa")
-        .select("*");
-
+      const { data, error } = await supabase.from("users-nffa").select("*");
       if (error) {
         console.error("Erreur chargement utilisateurs :", error);
         return;
       }
-
       document.getElementById("userList").innerHTML = data.map(u => {
         const cls = u.permission === "admin" ? "admin" : u.permission === "dispatcher" ? "dispatcher" : "";
         let btn = "";
@@ -128,41 +197,167 @@
       }).join("");
     }
 
-    // Désigner un dispatcher (admin uniquement)
+    // Désigner dispatcher via bouton (compatibilité avec ancien code)
     window.setDispatcher = async function(id) {
-      await supabase
-        .from("users-nffa")
-        .update({ permission: "user" })
-        .eq("permission", "dispatcher");
-
-      await supabase
-        .from("users-nffa")
-        .update({ permission: "dispatcher" })
-        .eq("id", id);
-
+      await supabase.from("users-nffa").update({ permission: "user" }).eq("permission", "dispatcher");
+      await supabase.from("users-nffa").update({ permission: "dispatcher" }).eq("id", id);
       loadUsers();
+      loadBoard();
     };
 
-    // Mise à jour présence à la fermeture de l'onglet
+    // Charger le tableau blanc
+    async function loadBoard() {
+      const { data: users, error } = await supabase
+        .from("users-nffa")
+        .select("*")
+        .eq("presence", true);
+
+      if (error) {
+        console.error("Erreur chargement board :", error);
+        return;
+      }
+
+      // Vider les zones
+      document.getElementById("available-users").innerHTML = '<h3>Utilisateurs disponibles</h3>';
+      document.getElementById("dispatcher-zone").innerHTML = '<h3>Dispatcher</h3>';
+      const patrolsContainer = document.querySelector(".patrols");
+      patrolsContainer.innerHTML = '';
+
+      // Créer les 10 patrouilles
+      for (let i = 1; i <= 10; i++) {
+        const patrolDiv = document.createElement("div");
+        patrolDiv.id = `patrol-${i}`;
+        patrolDiv.className = "patrol-zone drop-zone";
+        patrolDiv.innerHTML = `
+          <h3>Patrouille ${i}</h3>
+          <div class="slot leader"></div>
+          <div class="slot"></div>
+          <div class="slot"></div>
+          <div class="slot"></div>
+        `;
+        patrolsContainer.appendChild(patrolDiv);
+      }
+
+      // Placer les users dans les zones appropriées
+      users.forEach(u => {
+        const tag = document.createElement("div");
+        tag.className = "user-tag";
+        tag.dataset.userId = u.id;
+        tag.textContent = `${u.user} (${u.permission})`;
+
+        if (u.permission === "dispatcher") {
+          document.getElementById("dispatcher-zone").appendChild(tag);
+        } else if (u.patrol) {
+          const patrolZone = document.getElementById(`patrol-${u.patrol}`);
+          const slots = patrolZone.querySelectorAll(".slot");
+          if (u.position >= 1 && u.position <= 4) {
+            slots[u.position - 1].appendChild(tag);
+          }
+        } else {
+          document.getElementById("available-users").appendChild(tag);
+        }
+      });
+
+      // Initialiser Sortable sur les zones
+      initSortable();
+    }
+
+    // Initialiser le drag and drop avec Sortable.js
+    function initSortable() {
+      const isAdmin = currentUser.permission === "admin";
+      const isDispatcher = currentUser.permission === "dispatcher";
+
+      // Zone available
+      new Sortable(document.getElementById("available-users"), {
+        group: 'shared',
+        animation: 150,
+        onAdd: async (evt) => {
+          // Mise à jour Supabase : reset assignment
+          await updateUserAssignment(evt.item.dataset.userId, null, null, null);
+        }
+      });
+
+      // Zone dispatcher (limité à 1, seulement pour admins)
+      new Sortable(document.getElementById("dispatcher-zone"), {
+        group: 'shared',
+        animation: 150,
+        onAdd: async (evt) => {
+          if (!isAdmin) {
+            evt.item.remove(); // Annuler si pas admin
+            return;
+          }
+          if (document.getElementById("dispatcher-zone").children.length > 2) { // >2 car h3 + 1 tag
+            evt.item.remove(); // Limite à 1
+            return;
+          }
+          // Reset ancien dispatcher
+          await supabase.from("users-nffa").update({ permission: "user" }).eq("permission", "dispatcher");
+          // Set nouveau
+          await updateUserAssignment(evt.item.dataset.userId, null, null, "dispatcher");
+        },
+        onRemove: async (evt) => {
+          await updateUserAssignment(evt.item.dataset.userId, null, null, "user");
+        }
+      });
+
+      // Zones patrouilles
+      for (let i = 1; i <= 10; i++) {
+        const patrolZone = document.getElementById(`patrol-${i}`);
+        new Sortable(patrolZone, {
+          group: 'shared',
+          animation: 150,
+          onAdd: async (evt) => {
+            if (!isAdmin && !isDispatcher) {
+              evt.item.remove(); // Annuler si pas autorisé
+              return;
+            }
+            if (patrolZone.children.length > 5) { // >5 car h3 + 4 slots
+              evt.item.remove(); // Limite à 4
+              return;
+            }
+            // Calculer position (basé sur index dans zone)
+            const position = Array.from(patrolZone.children).indexOf(evt.item) - 1; // -1 pour h3
+            await updateUserAssignment(evt.item.dataset.userId, i, position, null);
+          },
+          onSort: async (evt) => {
+            // Mise à jour positions après reorder
+            const tags = patrolZone.querySelectorAll(".user-tag");
+            for (let pos = 0; pos < tags.length; pos++) {
+              await updateUserAssignment(tags[pos].dataset.userId, i, pos + 1, null);
+            }
+          },
+          onRemove: async (evt) => {
+            await updateUserAssignment(evt.item.dataset.userId, null, null, null);
+          }
+        });
+      }
+    }
+
+    // Fonction pour update assignment en Supabase
+    async function updateUserAssignment(userId, patrol, position, permission) {
+      const updates = { patrol, position };
+      if (permission) updates.permission = permission;
+      await supabase.from("users-nffa").update(updates).eq("id", userId);
+      loadBoard(); // Recharger pour refléter changements
+    }
+
+    // Mise à jour présence à la fermeture
     window.addEventListener("beforeunload", () => {
       const url = `${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}`;
       navigator.sendBeacon(url, JSON.stringify({ presence: false }));
     });
 
-    // Déconnexion manuelle
+    // Déconnexion
     document.getElementById("logoutBtn").addEventListener("click", async () => {
-      await supabase
-        .from("users-nffa")
-        .update({ presence: false })
-        .eq("id", currentUser.id);
-
+      await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
       localStorage.removeItem("nffa_user");
       window.location.href = "login.html";
     });
 
-    // Chargement initial + rafraîchissement automatique
+    // Chargement initial
     loadUsers();
-    setInterval(loadUsers, 10000);
+    loadBoard();
+    setInterval(() => { loadUsers(); loadBoard(); }, 10000); // Rafraîchissement auto
   </script>
 </body>
 </html>
