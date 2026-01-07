@@ -40,26 +40,40 @@
     }
     button:hover { background: #b91c1c; }
     .card {
-      max-width: 800px;
+      max-width: 900px;
       margin: 40px auto;
       padding: 24px;
       border-radius: 16px;
       background: rgba(255,255,255,0.95);
       box-shadow: 0 10px 25px rgba(0,0,0,.12);
     }
+    .warning-message {
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin: 16px 0;
+      text-align: center;
+      font-weight: 500;
+    }
 
     /* Tableau blanc */
-    #board {
+    #board-container {
       position: relative;
-      padding: 20px;
-      margin: 20px auto;
-      max-width: 1400px;
-      background: rgba(255,255,255,0.92);
-      border-radius: 16px;
+      padding-top: 100px; /* Espace pour la case Dispatcher en haut */
+    }
+    #board {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 20px;
+      gap: 30px;
+      padding: 20px;
+      background: rgba(255,255,255,0.92);
+      border-radius: 16px;
+      margin: 0 auto;
+      max-width: 1400px;
     }
     .drop-zone {
       padding: 12px;
@@ -71,60 +85,52 @@
     #dispatcher-zone {
       position: absolute;
       top: 20px;
-      left: 20px;
-      width: 230px;
-      border: 3px solid #e11d48;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 260px;
+      border: 4px solid #e11d48;
       background: #fef2f2;
-      z-index: 10; /* Pour être au-dessus si besoin */
+      text-align: center;
+      z-index: 20;
     }
     #available-users {
-      width: 280px;
+      width: 300px;
       min-height: 500px;
     }
     .patrols {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 18px;
-      flex: 1;
+      gap: 20px;
+      width: 100%;
     }
     .patrol-zone {
       border: 2px solid #e11d48;
       border-radius: 12px;
       background: #fef2f2;
-      min-height: 240px;
+      min-height: 260px;
       padding: 10px;
+      text-align: center;
     }
     .user-tag {
-      padding: 11px 15px;
-      margin: 6px 0;
+      padding: 12px 16px;
+      margin: 8px 0;
       background: #fecaca;
       border-radius: 10px;
       cursor: grab;
       user-select: none;
       font-weight: 500;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      transition: transform 0.1s;
     }
-    .user-tag:active { cursor: grabbing; }
+    .user-tag:active { cursor: grabbing; transform: scale(1.05); }
     .user-tag.admin { background: #fca5a5; font-weight: bold; }
     .user-tag.dispatcher { background: #f87171; color: white; font-weight: bold; }
 
-    /* Team Leader = premier de la liste */
+    /* Team Leader = premier utilisateur de la patrouille */
     .patrol-zone .user-tag:first-child::before {
-      content: "Team Leader ➤ ";
+      content: "👑 Team Leader - ";
       color: #991b1b;
       font-weight: bold;
-    }
-
-    .warning-message {
-      background: #fee2e2;
-      border: 1px solid #fecaca;
-      color: #991b1b;
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-size: 14px;
-      margin: 16px 0;
-      text-align: center;
-      font-weight: 500;
     }
   </style>
 </head>
@@ -142,16 +148,19 @@
     <div id="userList"></div>
   </div>
 
-  <div id="board">
+  <div id="board-container">
+    <!-- Case Dispatcher en haut centré -->
     <div id="dispatcher-zone" class="drop-zone">
       <h3>🚨 Dispatcher en poste</h3>
     </div>
 
-    <div id="available-users" class="drop-zone">
-      <h3>Disponibles</h3>
-    </div>
+    <div id="board">
+      <div id="available-users" class="drop-zone">
+        <h3>Disponibles</h3>
+      </div>
 
-    <div class="patrols"></div>
+      <div class="patrols"></div>
+    </div>
   </div>
 
   <script type="module">
@@ -167,43 +176,42 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    let dispatcherPermissionId = null;
-
-    async function loadUsers() {
+    // Charger la liste simple (référence)
+    async function loadUsersList() {
       const { data } = await supabase.from("users-nffa").select("*");
       document.getElementById("userList").innerHTML = data.map(u => {
         const cls = u.permission === "admin" ? "admin" : u.permission === "dispatcher" ? "dispatcher" : "";
-        let btn = "";
-        if (currentUser.permission === "admin" && u.permission !== "admin") {
-          btn = `<button onclick="setDispatcher(${u.id})">Désigner dispatcher</button>`;
-        }
+        let btn = currentUser.permission === "admin" && u.permission !== "admin"
+          ? `<button onclick="setDispatcher(${u.id})">Désigner dispatcher</button>`
+          : "";
         return `<div class="user-item ${cls}">
           ${u.user} - ${u.permission} - Présence: ${u.presence ? "✅" : "❌"} ${btn}
         </div>`;
       }).join("");
     }
 
+    // Désigner un dispatcher (admin uniquement)
     window.setDispatcher = async function(id) {
       await supabase.from("users-nffa").update({ permission: "user", patrol: null, position: null }).eq("permission", "dispatcher");
       await supabase.from("users-nffa").update({ permission: "dispatcher", patrol: 0 }).eq("id", id);
       await loadBoard();
     };
 
+    // Chargement complet du tableau blanc
     async function loadBoard() {
-      // Rafraîchir currentUser depuis la DB pour avoir les dernières infos (ex. patrol)
-      const { data: freshUser } = await supabase.from("users-nffa").select("*").eq("id", currentUser.id).single();
-      if (freshUser) currentUser = freshUser;
+      // Rafraîchir les données de l'utilisateur courant
+      const { data: fresh } = await supabase.from("users-nffa").select("*").eq("id", currentUser.id).single();
+      if (fresh) currentUser = fresh;
 
       const { data: users } = await supabase.from("users-nffa").select("*").eq("presence", true);
       if (!users) return;
 
-      const disp = users.find(u => u.permission === "dispatcher");
-      dispatcherPermissionId = disp ? disp.id : null;
-
+      // Vider toutes les zones
       document.getElementById("available-users").innerHTML = '<h3>Disponibles</h3>';
       document.getElementById("dispatcher-zone").innerHTML = '<h3>🚨 Dispatcher en poste</h3>';
       document.querySelector(".patrols").innerHTML = '';
 
+      // Créer les 10 patrouilles
       for (let i = 1; i <= 10; i++) {
         const div = document.createElement("div");
         div.id = `patrol-${i}`;
@@ -212,111 +220,108 @@
         document.querySelector(".patrols").appendChild(div);
       }
 
+      // Placer chaque utilisateur
       users.forEach(u => {
         const tag = document.createElement("div");
         tag.className = `user-tag ${u.permission}`;
         tag.dataset.userId = u.id;
-        tag.dataset.permission = u.permission;
         tag.textContent = u.user;
 
-        if (u.patrol === 0 && u.permission === "dispatcher") {
+        if (u.permission === "dispatcher" && u.patrol === 0) {
           document.getElementById("dispatcher-zone").appendChild(tag);
         } else if (u.patrol >= 1 && u.patrol <= 10) {
-          const patrol = document.getElementById(`patrol-${u.patrol}`);
-          const members = patrol.querySelector(".members");
-          const tags = Array.from(members.children).sort((a, b) => (a.dataset.position || 0) - (b.dataset.position || 0));
-          members.appendChild(tag);
-          tag.dataset.position = u.position;
-          // Trier visuellement
-          tags.forEach(t => members.appendChild(t));
+          document.getElementById(`patrol-${u.patrol}`).querySelector(".members").appendChild(tag);
         } else {
           document.getElementById("available-users").appendChild(tag);
         }
       });
 
-      initSortable();
+      initDragAndDrop();
     }
 
-    function initSortable() {
+    // Initialisation du drag & drop
+    function initDragAndDrop() {
       const isAdmin = currentUser.permission === "admin";
       const isDispatcherOnDuty = currentUser.permission === "dispatcher" && currentUser.patrol === 0;
-      const canMovePatrols = isAdmin || isDispatcherOnDuty;
-      const canMoveDispatcher = isAdmin;
+      const canManagePatrols = isAdmin || isDispatcherOnDuty;
+      const canManageDispatcher = isAdmin;
 
-      async function updatePatrolPositions(patrolId) {
-        const members = document.getElementById(`patrol-${patrolId}`).querySelector(".members");
-        const tags = members.querySelectorAll(".user-tag");
-        for (let i = 0; i < tags.length; i++) {
-          const id = tags[i].dataset.userId;
-          await supabase.from("users-nffa").update({ position: i + 1 }).eq("id", id);
-        }
-        await loadBoard(); // Recharge pour synchroniser
-      }
-
-      new Sortable(document.getElementById("available-users"), {
-        group: { name: "shared", pull: true, put: true },
+      const commonOptions = {
+        group: "users",
         animation: 150,
         draggable: ".user-tag",
-        multiDrag: false, // Pas de multi-sélection
-        fallbackTolerance: 3,
-        onAdd: async (evt) => {
-          if (!canMovePatrols) { evt.item.remove(); return; }
-          await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", evt.item.dataset.userId);
-          await loadBoard();
-        },
-        onRemove: () => loadBoard()
+        ghostClass: "sortable-ghost",
+        chosenClass: "sortable-chosen",
+        dragClass: "sortable-drag",
+      };
+
+      // Disponibles
+      new Sortable(document.getElementById("available-users"), {
+        ...commonOptions,
+        onEnd: async (evt) => {
+          if (!canManagePatrols && evt.from !== evt.to) return;
+          await supabase.from("users-nffa")
+            .update({ patrol: null, position: null })
+            .eq("id", evt.item.dataset.userId);
+          setTimeout(loadBoard, 100); // Petit délai pour stabilité
+        }
       });
 
+      // Dispatcher (seul admin + uniquement celui qui a la permission dispatcher)
       new Sortable(document.getElementById("dispatcher-zone"), {
-        group: { name: "shared", pull: true, put: true },
-        animation: 150,
-        draggable: ".user-tag",
-        multiDrag: false,
-        fallbackTolerance: 3,
-        onAdd: async (evt) => {
-          if (!canMoveDispatcher || evt.item.dataset.permission !== "dispatcher") { evt.item.remove(); return; }
-          const tags = document.getElementById("dispatcher-zone").querySelectorAll(".user-tag");
+        ...commonOptions,
+        onEnd: async (evt) => {
+          if (!canManageDispatcher) return evt.item.remove();
+          if (evt.item.classList.contains("dispatcher") === false) return evt.item.remove();
+
+          const tags = document.querySelectorAll("#dispatcher-zone .user-tag");
           if (tags.length > 1) {
-            const old = tags[0];
-            old.remove();
+            const old = tags[0] === evt.item ? tags[1] : tags[0];
+            document.getElementById("available-users").appendChild(old);
             await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", old.dataset.userId);
           }
-          await supabase.from("users-nffa").update({ patrol: 0, position: null }).eq("id", evt.item.dataset.userId);
-          await loadBoard();
-        },
-        onRemove: async (evt) => {
-          await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", evt.item.dataset.userId);
-          await loadBoard();
+
+          await supabase.from("users-nffa")
+            .update({ patrol: 0 })
+            .eq("id", evt.item.dataset.userId);
+
+          setTimeout(loadBoard, 100);
         }
       });
 
+      // Patrouilles
       for (let i = 1; i <= 10; i++) {
         const members = document.getElementById(`patrol-${i}`).querySelector(".members");
+
         new Sortable(members, {
-          group: { name: "shared", pull: true, put: true },
-          animation: 150,
-          draggable: ".user-tag",
-          multiDrag: false,
-          fallbackTolerance: 3,
-          onAdd: async (evt) => {
-            if (!canMovePatrols) { evt.item.remove(); return; }
+          ...commonOptions,
+          onEnd: async (evt) => {
+            if (!canManagePatrols && evt.from !== evt.to) return;
+
             const tags = members.querySelectorAll(".user-tag");
-            if (tags.length > 4) { evt.item.remove(); return; }
-            await supabase.from("users-nffa").update({ patrol: i }).eq("id", evt.item.dataset.userId);
-            await updatePatrolPositions(i);
-          },
-          onSort: async () => {
-            if (!canMovePatrols) return;
-            await updatePatrolPositions(i);
-          },
-          onRemove: async (evt) => {
-            await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", evt.item.dataset.userId);
-            await updatePatrolPositions(i);
+            if (tags.length > 4) {
+              evt.item.remove();
+              return;
+            }
+
+            await supabase.from("users-nffa")
+              .update({ patrol: i })
+              .eq("id", evt.item.dataset.userId);
+
+            // Mettre à jour les positions
+            tags.forEach(async (tag, index) => {
+              await supabase.from("users-nffa")
+                .update({ position: index + 1 })
+                .eq("id", tag.dataset.userId);
+            });
+
+            setTimeout(loadBoard, 100);
           }
         });
       }
     }
 
+    // Déconnexion
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
       localStorage.removeItem("nffa_user");
@@ -327,9 +332,13 @@
       navigator.sendBeacon(`${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}`, JSON.stringify({ presence: false }));
     });
 
-    loadUsers();
+    // Démarrage
+    loadUsersList();
     loadBoard();
-    setInterval(() => { loadUsers(); loadBoard(); }, 10000);
+    setInterval(() => {
+      loadUsersList();
+      loadBoard();
+    }, 10000);
   </script>
 </body>
 </html>
