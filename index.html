@@ -57,6 +57,19 @@
     }
     .user-item.admin { background: #fee2e2; }
     .user-item.dispatcher { background: #fee2e2aa; }
+
+    /* Style du message de rappel */
+    .warning-message {
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin: 16px 0;
+      text-align: center;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -66,6 +79,12 @@
   </header>
   <div class="card">
     <h2 id="welcome"></h2>
+
+    <!-- Message ajouté ici -->
+    <div class="warning-message">
+      ⚠️ Merci de bien cliquer sur « Déconnexion » avant de quitter ou fermer l'onglet pour mettre à jour votre statut correctement.
+    </div>
+
     <div id="userList"></div>
   </div>
 
@@ -111,13 +130,11 @@
 
     // Désigner un dispatcher (admin uniquement)
     window.setDispatcher = async function(id) {
-      // Retirer le rôle dispatcher à tous
       await supabase
         .from("users-nffa")
         .update({ permission: "user" })
         .eq("permission", "dispatcher");
 
-      // Donner le rôle à la personne sélectionnée
       await supabase
         .from("users-nffa")
         .update({ permission: "dispatcher" })
@@ -126,17 +143,9 @@
       loadUsers();
     };
 
-    // Mise à jour présence à false (quand on ferme l'onglet ou la fenêtre)
+    // Mise à jour présence à la fermeture de l'onglet
     window.addEventListener("beforeunload", () => {
-      navigator.sendBeacon(
-        `${SUPABASE_URL}/rest/v1/users-nffa`,
-        JSON.stringify({
-          presence: false
-        })
-      );
-      // On ajoute les headers nécessaires via une petite astuce (sendBeacon ne permet pas les headers personnalisés)
-      // Mais Supabase accepte les PATCH avec filtre via query params
-      const url = `${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}&apikey=${SUPABASE_ANON_KEY}`;
+      const url = `${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}`;
       navigator.sendBeacon(url, JSON.stringify({ presence: false }));
     });
 
@@ -151,10 +160,8 @@
       window.location.href = "login.html";
     });
 
-    // Chargement initial
+    // Chargement initial + rafraîchissement automatique
     loadUsers();
-
-    // Optionnel : rafraîchir la liste toutes les 10 secondes pour voir les présences en temps réel
     setInterval(loadUsers, 10000);
   </script>
 </body>
