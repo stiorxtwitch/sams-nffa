@@ -204,14 +204,20 @@
       z-index: 1000;
     }
 
-    /* Carte */
+    /* Carte - GRANDE ET VISIBLE */
     #map-container {
-      height: 700px;
-      margin: 40px auto;
+      width: 90%;
       max-width: 1400px;
+      height: 800px; /* Hauteur augmentée pour bien voir la carte */
+      margin: 40px auto;
       border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,.2);
+      box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+      background: #000;
+    }
+    #patrol-map {
+      width: 100%;
+      height: 100%;
     }
   </style>
 </head>
@@ -295,31 +301,29 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Liste des lieux (tu peux ajouter autant que tu veux)
     const streets = [
       "", "Paleto Bay", "Mount Chiliad", "Grapeseed", "Sandy Shores", "Alamo Sea", "Raton Canyon", "Tongva Hills", "Banham Canyon", "Vinewood Hills", "Rockford Hills", "Downtown Vinewood", "Downtown", "Vespucci Beach", "Del Perro", "Little Seoul", "South Los Santos", "Los Santos International Airport", "Port of Los Santos"
     ];
 
-    // Coordonnées normalisées 0-1 (basées sur ton image cCrStMo.png)
     const streetCoords = {
-      "Paleto Bay": [0.15, 0.15],
-      "Mount Chiliad": [0.25, 0.35],
-      "Grapeseed": [0.35, 0.25],
-      "Sandy Shores": [0.55, 0.35],
-      "Alamo Sea": [0.50, 0.40],
-      "Raton Canyon": [0.30, 0.45],
-      "Tongva Hills": [0.45, 0.55],
-      "Banham Canyon": [0.50, 0.65],
-      "Vinewood Hills": [0.60, 0.50],
-      "Rockford Hills": [0.65, 0.55],
-      "Downtown Vinewood": [0.70, 0.50],
-      "Downtown": [0.75, 0.60],
-      "Vespucci Beach": [0.70, 0.70],
-      "Del Perro": [0.75, 0.70],
-      "Little Seoul": [0.75, 0.65],
-      "South Los Santos": [0.80, 0.75],
-      "Los Santos International Airport": [0.90, 0.80],
-      "Port of Los Santos": [0.85, 0.85]
+      "Paleto Bay": [0.12, 0.12],
+      "Mount Chiliad": [0.22, 0.32],
+      "Grapeseed": [0.32, 0.22],
+      "Sandy Shores": [0.52, 0.32],
+      "Alamo Sea": [0.48, 0.38],
+      "Raton Canyon": [0.28, 0.42],
+      "Tongva Hills": [0.42, 0.52],
+      "Banham Canyon": [0.48, 0.62],
+      "Vinewood Hills": [0.58, 0.48],
+      "Rockford Hills": [0.62, 0.52],
+      "Downtown Vinewood": [0.68, 0.48],
+      "Downtown": [0.72, 0.58],
+      "Vespucci Beach": [0.68, 0.68],
+      "Del Perro": [0.72, 0.68],
+      "Little Seoul": [0.72, 0.62],
+      "South Los Santos": [0.78, 0.72],
+      "Los Santos International Airport": [0.88, 0.78],
+      "Port of Los Santos": [0.82, 0.82]
     };
 
     let patrolMap = null;
@@ -327,15 +331,23 @@
     let currentPatrolNum = null;
 
     function initMap() {
-      patrolMap = L.map('patrol-map', { crs: L.CRS.Simple, minZoom: 2, maxZoom: 6 });
+      patrolMap = L.map('patrol-map', {
+        crs: L.CRS.Simple,
+        minZoom: 2,
+        maxZoom: 7,
+        zoomControl: true
+      });
 
-      // Ta carte satellite
       const mapUrl = 'https://i.imgur.com/cCrStMo.png';
       const imageBounds = [[0, 0], [1, 1]];
       L.imageOverlay(mapUrl, imageBounds).addTo(patrolMap);
 
       patrolMap.fitBounds(imageBounds);
-      setTimeout(() => patrolMap.invalidateSize(), 500);
+
+      // Forcer l'affichage complet
+      setTimeout(() => {
+        patrolMap.invalidateSize(true);
+      }, 1000);
     }
 
     async function loadPatrolMarkers() {
@@ -343,22 +355,21 @@
 
       const { data: patrols } = await supabase.from("patrouille").select("*");
 
-      // Nettoyage des anciens marqueurs
       Object.values(markers).forEach(m => patrolMap.removeLayer(m));
       markers = {};
 
       if (patrols) {
         patrols.forEach(p => {
-          let coord = [0.95, 0.05]; // Position "hors carte" (bas gauche) si pas de localisation
+          let coord = [0.95, 0.05]; // Hors carte si pas de localisation
           if (p.localisation && streetCoords[p.localisation]) {
             coord = streetCoords[p.localisation];
           }
 
           const icon = L.icon({
-            iconUrl: 'https://i.imgur.com/VTKJQyv.png', // Ton écusson SAMS
-            iconSize: [45, 45],
-            iconAnchor: [22, 22],
-            tooltipAnchor: [0, -20]
+            iconUrl: 'https://i.imgur.com/VTKJQyv.png',
+            iconSize: [50, 50],
+            iconAnchor: [25, 25],
+            tooltipAnchor: [0, -25]
           });
 
           const marker = L.marker(coord, { icon })
@@ -366,7 +377,7 @@
             .bindTooltip(p.patrol_name.replace('_', ' '), {
               permanent: false,
               direction: 'top',
-              className: 'leaflet-tooltip-own'
+              offset: [0, -10]
             });
 
           markers[p.patrol_name] = marker;
