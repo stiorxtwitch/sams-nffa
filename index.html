@@ -153,6 +153,7 @@
       padding: 6px 12px;
       border: none;
       border-radius: 8px;
+      color: white;
     }
 
     /* Modal */
@@ -241,41 +242,41 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Coordonnées des rues (à compléter !)
+    // Coordonnées rues (à compléter progressivement)
     const streetCoords = {
       "Grove Street": [0.48, 0.52],
       "Vinewood Boulevard": [0.35, 0.65],
       "Strawberry Avenue": [0.45, 0.50],
       "Power Street": [0.40, 0.58],
       "Eclipse Boulevard": [0.32, 0.62],
-      // Ajoute toutes les rues que tu veux ici
+      // Ajoute-en d'autres quand tu veux
     };
 
     let patrolMap = null;
     let markers = {};
 
-    // Initialisation de la carte
     function initMap() {
-      patrolMap = L.map('patrol-map', { zoomControl: true }).setView([0.5, 0.5], 3);
+      patrolMap = L.map('patrol-map').setView([0.5, 0.5], 3);
 
-      // Image de la carte Los Santos (remplace par une HD 8192x8192 si tu en as une)
+      // Image de la carte (remplace par une version HD si tu en as une)
       const mapUrl = 'https://i.imgur.com/wCJH8tY.png'; // <-- Mets ton URL HD ici
       L.imageOverlay(mapUrl, [[0, 0], [1, 1]]).addTo(patrolMap);
 
-      // Forcer le redimensionnement (bug fréquent avec Leaflet en display block tardif)
-      setTimeout(() => patrolMap.invalidateSize(), 500);
+      // Correction du bug d'affichage Leaflet
+      setTimeout(() => {
+        patrolMap.invalidateSize();
+      }, 300);
     }
 
-    // Chargement des marqueurs patrouilles
     async function loadPatrolMarkers() {
       if (!patrolMap) return;
 
-      const { data: patrols, error } = await supabase
+      const { data: patrols } = await supabase
         .from("patrouille")
         .select("*")
         .not("localisation", "is", null);
 
-      if (error || !patrols) return;
+      if (!patrols) return;
 
       // Supprimer anciens marqueurs
       Object.values(markers).forEach(m => patrolMap.removeLayer(m));
@@ -289,7 +290,6 @@
             .addTo(patrolMap)
             .bindPopup(`<b>${p.patrol_name.replace('_', ' ')}</b><br>Rue: ${rue}`)
             .openPopup();
-
           markers[p.patrol_name] = marker;
         }
       });
@@ -322,26 +322,11 @@
 
       if (!users || !patrols) return;
 
+      // On ne vide PAS le board entier pour ne pas effacer les inputs en cours d'écriture
+      // On ne recharge que les tags utilisateurs
       document.getElementById("available-users").innerHTML = '<h3>Disponibles</h3>';
       document.getElementById("dispatcher-zone").innerHTML = '<h3>🚨 Dispatcher en poste</h3>';
-      document.querySelector(".patrols").innerHTML = '';
-
-      for (let i = 1; i <= 10; i++) {
-        const patrolName = `Patrouille_${i}`;
-        const div = document.createElement("div");
-        div.className = "patrol-zone";
-        div.innerHTML = `<h3>Patrouille ${i}</h3><div class="members"></div>`;
-
-        const patrolData = patrols.find(p => p.patrol_name === patrolName) || { localisation: '' };
-        const locationDiv = document.createElement("div");
-        locationDiv.className = "patrol-location";
-        locationDiv.innerHTML = `
-          <input id="loc-${i}" type="text" placeholder="Ex: Grove Street" value="${patrolData.localisation || ''}">
-          <button onclick="updatePatrolLocation(${i})">Mettre à jour</button>
-        `;
-        div.appendChild(locationDiv);
-        document.querySelector(".patrols").appendChild(div);
-      }
+      document.querySelectorAll(".members").forEach(m => m.innerHTML = '');
 
       users.forEach(u => {
         const tag = document.createElement("div");
@@ -360,16 +345,39 @@
         }
       });
 
+      // On recrée le drag & drop seulement sur les tags (pas besoin de recharger les inputs)
       initDragAndDrop();
     }
 
-    // Fonction robuste pour mise à jour localisation
+    // Première création du board (avec inputs localisation)
+    async function createBoardStructure() {
+      const { data: patrols } = await supabase.from("patrouille").select("*");
+
+      document.querySelector(".patrols").innerHTML = '';
+
+      for (let i = 1; i <= 10; i++) {
+        const patrolName = `Patrouille_${i}`;
+        const div = document.createElement("div");
+        div.className = "patrol-zone";
+        div.innerHTML = `<h3>Patrouille ${i}</h3><div class="members"></div>`;
+
+        const patrolData = patrols.find(p => p.patrol_name === patrolName) || { localisation: '' };
+        const locationDiv = document.createElement("div");
+        locationDiv.className = "patrol-location";
+        locationDiv.innerHTML = `
+          <input id="loc-${i}" type="text" placeholder="Ex: Grove Street" value="${patrolData.localisation || ''}">
+          <button onclick="updatePatrolLocation(${i})">Mettre à jour</button>
+        `;
+        div.appendChild(locationDiv);
+        document.querySelector(".patrols").appendChild(div);
+      }
+    }
+
     window.updatePatrolLocation = async function(num) {
       const input = document.getElementById(`loc-${num}`);
       const localisation = input.value.trim();
       const patrolName = `Patrouille_${num}`;
 
-      // Cherche si la ligne existe déjà
       const { data: existing } = await supabase
         .from("patrouille")
         .select("id")
@@ -377,17 +385,11 @@
         .single();
 
       if (existing) {
-        await supabase
-          .from("patrouille")
-          .update({ localisation: localisation || null })
-          .eq("id", existing.id);
+        await supabase.from("patrouille").update({ localisation: localisation || null }).eq("id", existing.id);
       } else {
-        await supabase
-          .from("patrouille")
-          .insert({ patrol_name: patrolName, localisation: localisation || null });
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, localisation: localisation || null });
       }
 
-      // Mise à jour immédiate de la carte
       loadPatrolMarkers();
     };
 
@@ -458,16 +460,17 @@
 
     // Démarrage
     initMap();
+    createBoardStructure(); // Crée les patrouilles avec inputs une seule fois
     loadUsersList();
     loadBoard();
     loadPatrolMarkers();
 
-    // Rafraîchissement toutes les 5 secondes
+    // Rafraîchissement léger (seulement users + carte, pas le board entier)
     setInterval(() => {
       loadUsersList();
-      loadBoard();
+      loadBoard(); // Ne recharge que les tags utilisateurs
       loadPatrolMarkers();
-    }, 5000);
+    }, 8000);
   </script>
 </body>
 </html>
