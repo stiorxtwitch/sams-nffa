@@ -70,11 +70,12 @@
     }
     #dispatcher-zone {
       position: absolute;
-      top: 80px;
-      left: 30px;
+      top: 20px;
+      left: 20px;
       width: 230px;
       border: 3px solid #e11d48;
       background: #fef2f2;
+      z-index: 10; /* Pour être au-dessus si besoin */
     }
     #available-users {
       width: 280px;
@@ -166,7 +167,7 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    let dispatcherPermissionId = null; // ID de l'utilisateur qui a vraiment la permission dispatcher
+    let dispatcherPermissionId = null;
 
     async function loadUsers() {
       const { data } = await supabase.from("users-nffa").select("*");
@@ -182,29 +183,27 @@
       }).join("");
     }
 
-    // Désignation du dispatcher (admin seulement)
     window.setDispatcher = async function(id) {
-      // Retire l'ancien
       await supabase.from("users-nffa").update({ permission: "user", patrol: null, position: null }).eq("permission", "dispatcher");
-      // Donne au nouveau + le place automatiquement dans la case Dispatcher
       await supabase.from("users-nffa").update({ permission: "dispatcher", patrol: 0 }).eq("id", id);
       await loadBoard();
     };
 
     async function loadBoard() {
+      // Rafraîchir currentUser depuis la DB pour avoir les dernières infos (ex. patrol)
+      const { data: freshUser } = await supabase.from("users-nffa").select("*").eq("id", currentUser.id).single();
+      if (freshUser) currentUser = freshUser;
+
       const { data: users } = await supabase.from("users-nffa").select("*").eq("presence", true);
       if (!users) return;
 
-      // Trouver qui a la permission dispatcher
       const disp = users.find(u => u.permission === "dispatcher");
       dispatcherPermissionId = disp ? disp.id : null;
 
-      // Vider tout
       document.getElementById("available-users").innerHTML = '<h3>Disponibles</h3>';
       document.getElementById("dispatcher-zone").innerHTML = '<h3>🚨 Dispatcher en poste</h3>';
       document.querySelector(".patrols").innerHTML = '';
 
-      // Créer les 10 patrouilles
       for (let i = 1; i <= 10; i++) {
         const div = document.createElement("div");
         div.id = `patrol-${i}`;
@@ -213,7 +212,6 @@
         document.querySelector(".patrols").appendChild(div);
       }
 
-      // Placer les utilisateurs
       users.forEach(u => {
         const tag = document.createElement("div");
         tag.className = `user-tag ${u.permission}`;
@@ -221,11 +219,16 @@
         tag.dataset.permission = u.permission;
         tag.textContent = u.user;
 
-        if (u.patrol === 0) {
+        if (u.patrol === 0 && u.permission === "dispatcher") {
           document.getElementById("dispatcher-zone").appendChild(tag);
         } else if (u.patrol >= 1 && u.patrol <= 10) {
           const patrol = document.getElementById(`patrol-${u.patrol}`);
-          patrol.querySelector(".members").appendChild(tag);
+          const members = patrol.querySelector(".members");
+          const tags = Array.from(members.children).sort((a, b) => (a.dataset.position || 0) - (b.dataset.position || 0));
+          members.appendChild(tag);
+          tag.dataset.position = u.position;
+          // Trier visuellement
+          tags.forEach(t => members.appendChild(t));
         } else {
           document.getElementById("available-users").appendChild(tag);
         }
@@ -240,73 +243,66 @@
       const canMovePatrols = isAdmin || isDispatcherOnDuty;
       const canMoveDispatcher = isAdmin;
 
-      // Fonction pour mettre à jour les positions d'une patrouille
       async function updatePatrolPositions(patrolId) {
-        const tags = document.querySelectorAll(`#patrol-${patrolId} .user-tag`);
+        const members = document.getElementById(`patrol-${patrolId}`).querySelector(".members");
+        const tags = members.querySelectorAll(".user-tag");
         for (let i = 0; i < tags.length; i++) {
-          await supabase.from("users-nffa")
-            .update({ position: i + 1 })
-            .eq("id", tags[i].dataset.userId);
+          const id = tags[i].dataset.userId;
+          await supabase.from("users-nffa").update({ position: i + 1 }).eq("id", id);
         }
+        await loadBoard(); // Recharge pour synchroniser
       }
 
-      // Zone disponibles
       new Sortable(document.getElementById("available-users"), {
         group: { name: "shared", pull: true, put: true },
         animation: 150,
         draggable: ".user-tag",
+        multiDrag: false, // Pas de multi-sélection
+        fallbackTolerance: 3,
         onAdd: async (evt) => {
           if (!canMovePatrols) { evt.item.remove(); return; }
-          await supabase.from("users-nffa")
-            .update({ patrol: null, position: null })
-            .eq("id", evt.item.dataset.userId);
-        }
+          await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", evt.item.dataset.userId);
+          await loadBoard();
+        },
+        onRemove: () => loadBoard()
       });
 
-      // Zone Dispatcher (1 seul + uniquement l'utilisateur qui a vraiment la permission dispatcher)
       new Sortable(document.getElementById("dispatcher-zone"), {
         group: { name: "shared", pull: true, put: true },
         animation: 150,
         draggable: ".user-tag",
+        multiDrag: false,
+        fallbackTolerance: 3,
         onAdd: async (evt) => {
-          if (!canMoveDispatcher) { evt.item.remove(); return; }
-          if (evt.item.dataset.permission !== "dispatcher") { evt.item.remove(); return; }
-
-          const tags = document.querySelectorAll("#dispatcher-zone .user-tag");
+          if (!canMoveDispatcher || evt.item.dataset.permission !== "dispatcher") { evt.item.remove(); return; }
+          const tags = document.getElementById("dispatcher-zone").querySelectorAll(".user-tag");
           if (tags.length > 1) {
             const old = tags[0];
-            document.getElementById("available-users").appendChild(old);
+            old.remove();
             await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", old.dataset.userId);
           }
-
-          await supabase.from("users-nffa")
-            .update({ patrol: 0, position: null })
-            .eq("id", evt.item.dataset.userId);
+          await supabase.from("users-nffa").update({ patrol: 0, position: null }).eq("id", evt.item.dataset.userId);
+          await loadBoard();
         },
         onRemove: async (evt) => {
-          await supabase.from("users-nffa")
-            .update({ patrol: null, position: null })
-            .eq("id", evt.item.dataset.userId);
+          await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", evt.item.dataset.userId);
+          await loadBoard();
         }
       });
 
-      // Patrouilles
       for (let i = 1; i <= 10; i++) {
-        const zone = document.getElementById(`patrol-${i}`).querySelector(".members");
-
-        new Sortable(zone, {
+        const members = document.getElementById(`patrol-${i}`).querySelector(".members");
+        new Sortable(members, {
           group: { name: "shared", pull: true, put: true },
           animation: 150,
           draggable: ".user-tag",
+          multiDrag: false,
+          fallbackTolerance: 3,
           onAdd: async (evt) => {
             if (!canMovePatrols) { evt.item.remove(); return; }
-            const tags = zone.querySelectorAll(".user-tag");
+            const tags = members.querySelectorAll(".user-tag");
             if (tags.length > 4) { evt.item.remove(); return; }
-
-            await supabase.from("users-nffa")
-              .update({ patrol: i })
-              .eq("id", evt.item.dataset.userId);
-
+            await supabase.from("users-nffa").update({ patrol: i }).eq("id", evt.item.dataset.userId);
             await updatePatrolPositions(i);
           },
           onSort: async () => {
@@ -314,20 +310,13 @@
             await updatePatrolPositions(i);
           },
           onRemove: async (evt) => {
-            await supabase.from("users-nffa")
-              .update({ patrol: null, position: null })
-              .eq("id", evt.item.dataset.userId);
-
-            if (evt.from.id.includes("patrol-")) {
-              const oldPatrolId = evt.from.closest(".patrol-zone").id.split("-")[1];
-              await updatePatrolPositions(oldPatrolId);
-            }
+            await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", evt.item.dataset.userId);
+            await updatePatrolPositions(i);
           }
         });
       }
     }
 
-    // Déconnexion + présence
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
       localStorage.removeItem("nffa_user");
@@ -338,7 +327,6 @@
       navigator.sendBeacon(`${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}`, JSON.stringify({ presence: false }));
     });
 
-    // Chargement initial + rafraîchissement toutes les 10 secondes
     loadUsers();
     loadBoard();
     setInterval(() => { loadUsers(); loadBoard(); }, 10000);
