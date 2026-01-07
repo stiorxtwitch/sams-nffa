@@ -155,7 +155,7 @@
       border-radius: 8px;
     }
 
-    /* Modal fiche agent */
+    /* Modal */
     #user-modal, #modal-backdrop {
       display: none;
       position: fixed;
@@ -241,31 +241,43 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Exemple de coordonnées rues (à compléter avec toutes les rues que tu veux)
+    // Coordonnées des rues (à compléter !)
     const streetCoords = {
       "Grove Street": [0.48, 0.52],
       "Vinewood Boulevard": [0.35, 0.65],
       "Strawberry Avenue": [0.45, 0.50],
       "Power Street": [0.40, 0.58],
       "Eclipse Boulevard": [0.32, 0.62],
-      // Ajoute les autres ici
+      // Ajoute toutes les rues que tu veux ici
     };
 
-    let patrolMap;
+    let patrolMap = null;
     let markers = {};
 
+    // Initialisation de la carte
     function initMap() {
-      patrolMap = L.map('patrol-map').setView([0.5, 0.5], 3);
+      patrolMap = L.map('patrol-map', { zoomControl: true }).setView([0.5, 0.5], 3);
 
-      // Remplace par ton URL d'image HD de Los Santos (8192x8192 recommandé)
-      const mapUrl = 'https://i.imgur.com/wCJH8tY.png'; // <-- Mets ta map HD ici
+      // Image de la carte Los Santos (remplace par une HD 8192x8192 si tu en as une)
+      const mapUrl = 'https://i.imgur.com/wCJH8tY.png'; // <-- Mets ton URL HD ici
       L.imageOverlay(mapUrl, [[0, 0], [1, 1]]).addTo(patrolMap);
+
+      // Forcer le redimensionnement (bug fréquent avec Leaflet en display block tardif)
+      setTimeout(() => patrolMap.invalidateSize(), 500);
     }
 
+    // Chargement des marqueurs patrouilles
     async function loadPatrolMarkers() {
-      const { data: patrols } = await supabase.from("patrouille").select("*").not("localisation", "is", null);
+      if (!patrolMap) return;
 
-      // Supprime anciens marqueurs
+      const { data: patrols, error } = await supabase
+        .from("patrouille")
+        .select("*")
+        .not("localisation", "is", null);
+
+      if (error || !patrols) return;
+
+      // Supprimer anciens marqueurs
       Object.values(markers).forEach(m => patrolMap.removeLayer(m));
       markers = {};
 
@@ -273,9 +285,11 @@
         const rue = p.localisation.trim();
         if (streetCoords[rue]) {
           const coord = streetCoords[rue];
-          const marker = L.marker(coord).addTo(patrolMap)
-            .bindPopup(`<b>${p.patrol_name.replace('_', ' ')}</b><br>Localisation: ${rue}`)
+          const marker = L.marker(coord)
+            .addTo(patrolMap)
+            .bindPopup(`<b>${p.patrol_name.replace('_', ' ')}</b><br>Rue: ${rue}`)
             .openPopup();
+
           markers[p.patrol_name] = marker;
         }
       });
@@ -318,11 +332,11 @@
         div.className = "patrol-zone";
         div.innerHTML = `<h3>Patrouille ${i}</h3><div class="members"></div>`;
 
-        const patrolData = patrols.find(p => p.patrol_name === patrolName);
+        const patrolData = patrols.find(p => p.patrol_name === patrolName) || { localisation: '' };
         const locationDiv = document.createElement("div");
         locationDiv.className = "patrol-location";
         locationDiv.innerHTML = `
-          <input id="loc-${i}" type="text" placeholder="Nom de rue (ex: Grove Street)" value="${patrolData?.localisation || ''}">
+          <input id="loc-${i}" type="text" placeholder="Ex: Grove Street" value="${patrolData.localisation || ''}">
           <button onclick="updatePatrolLocation(${i})">Mettre à jour</button>
         `;
         div.appendChild(locationDiv);
@@ -349,22 +363,31 @@
       initDragAndDrop();
     }
 
+    // Fonction robuste pour mise à jour localisation
     window.updatePatrolLocation = async function(num) {
       const input = document.getElementById(`loc-${num}`);
       const localisation = input.value.trim();
       const patrolName = `Patrouille_${num}`;
 
-      if (localisation) {
-        const { data } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
-        if (data) {
-          await supabase.from("patrouille").update({ localisation }).eq("id", data.id);
-        } else {
-          await supabase.from("patrouille").insert({ patrol_name: patrolName, localisation });
-        }
+      // Cherche si la ligne existe déjà
+      const { data: existing } = await supabase
+        .from("patrouille")
+        .select("id")
+        .eq("patrol_name", patrolName)
+        .single();
+
+      if (existing) {
+        await supabase
+          .from("patrouille")
+          .update({ localisation: localisation || null })
+          .eq("id", existing.id);
       } else {
-        await supabase.from("patrouille").update({ localisation: null }).eq("patrol_name", patrolName);
+        await supabase
+          .from("patrouille")
+          .insert({ patrol_name: patrolName, localisation: localisation || null });
       }
 
+      // Mise à jour immédiate de la carte
       loadPatrolMarkers();
     };
 
@@ -422,6 +445,7 @@
       document.querySelectorAll(".members").forEach(m => new Sortable(m, options));
     }
 
+    // Déconnexion
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
       localStorage.removeItem("nffa_user");
@@ -438,12 +462,12 @@
     loadBoard();
     loadPatrolMarkers();
 
-    // Rafraîchissement fréquent
+    // Rafraîchissement toutes les 5 secondes
     setInterval(() => {
       loadUsersList();
       loadBoard();
       loadPatrolMarkers();
-    }, 5000); // Toutes les 5 secondes
+    }, 5000);
   </script>
 </body>
 </html>
