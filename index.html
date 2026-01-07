@@ -121,7 +121,7 @@
       margin: 10px 0;
       background: #fecaca;
       border-radius: 12px;
-      cursor: grab;
+      cursor: pointer; /* Changé pour pointer pour indiquer le double-click */
       user-select: none;
       font-weight: 600;
       box-shadow: 0 4px 10px rgba(0,0,0,0.15);
@@ -145,6 +145,52 @@
       content: "👑 Team Leader - ";
       color: #991b1b;
       font-weight: bold;
+    }
+
+    /* Pop-up fiche informative */
+    #user-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      z-index: 1000;
+      text-align: center;
+      max-width: 400px;
+    }
+    #user-modal h3 {
+      color: #e11d48;
+      margin-bottom: 16px;
+    }
+    #user-modal p {
+      font-size: 16px;
+      margin: 8px 0;
+    }
+    #user-modal button {
+      background: #e11d48;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    #user-modal button:hover {
+      background: #be123c;
+    }
+    #modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
     }
   </style>
 </head>
@@ -176,6 +222,16 @@
     </div>
 
     <div class="patrols"></div>
+  </div>
+
+  <!-- Pop-up modal -->
+  <div id="modal-backdrop"></div>
+  <div id="user-modal">
+    <h3>Fiche Agent</h3>
+    <p id="user-name"></p>
+    <p id="user-rank"></p>
+    <p id="user-unit"></p>
+    <button onclick="closeModal()">Fermer</button>
   </div>
 
   <script type="module">
@@ -212,19 +268,16 @@
     };
 
     async function loadBoard() {
-      // Rafraîchir l'utilisateur courant
       const { data: fresh } = await supabase.from("users-nffa").select("*").eq("id", currentUser.id).single();
       if (fresh) currentUser = fresh;
 
       const { data: users } = await supabase.from("users-nffa").select("*").eq("presence", true);
       if (!users) return;
 
-      // Vider les zones
       document.getElementById("available-users").innerHTML = '<h3>Disponibles</h3>';
       document.getElementById("dispatcher-zone").innerHTML = '<h3>🚨 Dispatcher en poste</h3>';
       document.querySelector(".patrols").innerHTML = '';
 
-      // Créer les 10 patrouilles
       for (let i = 1; i <= 10; i++) {
         const div = document.createElement("div");
         div.className = "patrol-zone";
@@ -232,12 +285,15 @@
         document.querySelector(".patrols").appendChild(div);
       }
 
-      // Placer les utilisateurs
       users.forEach(u => {
         const tag = document.createElement("div");
         tag.className = `user-tag ${u.permission}`;
         tag.dataset.userId = u.id;
+        tag.dataset.permission = u.permission;
         tag.textContent = u.user;
+
+        // Ajout du double-click pour la pop-up
+        tag.addEventListener('dblclick', () => showUserInfo(u.id));
 
         if (u.permission === "dispatcher" && u.patrol === 0) {
           document.getElementById("dispatcher-zone").appendChild(tag);
@@ -250,6 +306,24 @@
 
       initDragAndDrop();
     }
+
+    // Fonction pour afficher la pop-up
+    async function showUserInfo(userId) {
+      const { data: user } = await supabase.from("users-nffa").select("user, rank, unit").eq("id", userId).single();
+      if (user) {
+        document.getElementById("user-name").textContent = `Nom: ${user.user}`;
+        document.getElementById("user-rank").textContent = `Grade: ${user.rank || 'Non défini'}`;
+        document.getElementById("user-unit").textContent = `Unité: ${user.unit || 'Non définie'}`;
+        document.getElementById("user-modal").style.display = 'block';
+        document.getElementById("modal-backdrop").style.display = 'block';
+      }
+    }
+
+    // Fermer la pop-up
+    window.closeModal = function() {
+      document.getElementById("user-modal").style.display = 'none';
+      document.getElementById("modal-backdrop").style.display = 'none';
+    };
 
     function initDragAndDrop() {
       const isAdmin = currentUser.permission === "admin";
@@ -267,8 +341,9 @@
 
           const item = evt.item;
           const userId = item.dataset.userId;
+          const itemPermission = item.dataset.permission;
 
-          // Droits
+          // Sécurités renforcées
           if (!canManagePatrols && evt.to.id !== "available-users") {
             evt.item.remove();
             loadBoard();
@@ -279,14 +354,14 @@
             loadBoard();
             return;
           }
-          if (evt.to.id === "dispatcher-zone" && !item.classList.contains("dispatcher")) {
+          if (evt.to.id === "dispatcher-zone" && itemPermission !== "dispatcher") {
             evt.item.remove();
             loadBoard();
             return;
           }
 
           // Limites
-          if (evt.to.closest(".patrol-zone")) {
+          if (evt.to.classList.contains("members")) {
             const members = evt.to.querySelectorAll(".user-tag");
             if (members.length > 4) {
               evt.item.remove();
@@ -305,21 +380,22 @@
 
           // Mise à jour Supabase
           let patrol = null;
-          if (evt.to.closest(".patrol-zone")) {
-            const index = Array.from(document.querySelectorAll(".patrol-zone")).indexOf(evt.to.closest(".patrol-zone")) + 1;
-            patrol = index;
+          if (evt.to.classList.contains("members")) {
+            const patrolZone = evt.to.closest(".patrol-zone");
+            const patrolIndex = Array.from(document.querySelectorAll(".patrol-zone")).indexOf(patrolZone) + 1;
+            patrol = patrolIndex;
           } else if (evt.to.id === "dispatcher-zone") {
             patrol = 0;
           }
 
           await supabase.from("users-nffa").update({ patrol }).eq("id", userId);
 
-          // Recharger pour synchroniser l'ordre et les positions
+          // Recharger pour synchroniser
           loadBoard();
         }
       };
 
-      // Activer sur toutes les zones
+      // Initialiser Sortable sur chaque zone
       new Sortable(document.getElementById("available-users"), options);
       new Sortable(document.getElementById("dispatcher-zone"), options);
 
