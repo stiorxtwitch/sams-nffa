@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dispatch NFFA</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
       font-family: Inter, system-ui, sans-serif;
@@ -63,44 +62,44 @@
 <body>
   <header>
     <strong>Dispatch NFFA</strong>
-    <button onclick="logout()">Déconnexion</button>
+    <button id="logoutBtn">Déconnexion</button>
   </header>
   <div class="card">
     <h2 id="welcome"></h2>
     <div id="userList"></div>
   </div>
 
-  <script>
-    // Initialisation du client Supabase
-    const { createClient } = supabaseJs;
-    const supabase = createClient(
-      'https://gktawbaposndfxijkxdk.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk'
-    );
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const SUPABASE_URL = 'https://gktawbaposndfxijkxdk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrdGF3YmFwb3NuZGZ4aWpreGRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzUyNDUsImV4cCI6MjA3OTY1MTI0NX0.tY-CHuyb2zr9s6hlGkwmrdTvg920VVNghI9S45CjwKk';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Récupération de l'utilisateur connecté
-    let user = JSON.parse(localStorage.getItem("nffa_user"));
-    if (!user) {
-      location.href = "login.html";
+    let currentUser = JSON.parse(localStorage.getItem("nffa_user"));
+    if (!currentUser) {
+      window.location.href = "login.html";
     }
 
-    document.getElementById("welcome").textContent = `Bienvenue ${user.user} (${user.permission})`;
+    document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Charger la liste des utilisateurs
+    // Chargement de la liste des utilisateurs
     async function loadUsers() {
       const { data, error } = await supabase
         .from("users-nffa")
         .select("*");
 
       if (error) {
-        console.error(error);
+        console.error("Erreur chargement utilisateurs :", error);
         return;
       }
 
       document.getElementById("userList").innerHTML = data.map(u => {
-        let cls = u.permission === "admin" ? "admin" : u.permission === "dispatcher" ? "dispatcher" : "";
+        const cls = u.permission === "admin" ? "admin" : u.permission === "dispatcher" ? "dispatcher" : "";
         let btn = "";
-        if (user.permission === "admin" && u.permission !== "admin") {
+        if (currentUser.permission === "admin" && u.permission !== "admin") {
           btn = `<button onclick="setDispatcher(${u.id})">Désigner dispatcher</button>`;
         }
         return `<div class="user-item ${cls}">
@@ -110,47 +109,53 @@
       }).join("");
     }
 
-    // Fonction pour désigner un dispatcher (admin uniquement)
-    async function setDispatcher(id) {
-      // D'abord, retirer le rôle dispatcher à tout le monde
+    // Désigner un dispatcher (admin uniquement)
+    window.setDispatcher = async function(id) {
+      // Retirer le rôle dispatcher à tous
       await supabase
         .from("users-nffa")
         .update({ permission: "user" })
         .eq("permission", "dispatcher");
 
-      // Ensuite, attribuer le rôle à l'utilisateur sélectionné
+      // Donner le rôle à la personne sélectionnée
       await supabase
         .from("users-nffa")
         .update({ permission: "dispatcher" })
         .eq("id", id);
 
       loadUsers();
-    }
+    };
 
-    // Mettre la présence à false à la fermeture de l'onglet
+    // Mise à jour présence à false (quand on ferme l'onglet ou la fenêtre)
     window.addEventListener("beforeunload", () => {
       navigator.sendBeacon(
-        'https://gktawbaposndfxijkxdk.supabase.co/rest/v1/users-nffa',
+        `${SUPABASE_URL}/rest/v1/users-nffa`,
         JSON.stringify({
-          id: user.id,
           presence: false
         })
       );
+      // On ajoute les headers nécessaires via une petite astuce (sendBeacon ne permet pas les headers personnalisés)
+      // Mais Supabase accepte les PATCH avec filtre via query params
+      const url = `${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}&apikey=${SUPABASE_ANON_KEY}`;
+      navigator.sendBeacon(url, JSON.stringify({ presence: false }));
     });
 
-    // Déconnexion
-    async function logout() {
+    // Déconnexion manuelle
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase
         .from("users-nffa")
         .update({ presence: false })
-        .eq("id", user.id);
+        .eq("id", currentUser.id);
 
       localStorage.removeItem("nffa_user");
-      location.href = "login.html";
-    }
+      window.location.href = "login.html";
+    });
 
     // Chargement initial
     loadUsers();
+
+    // Optionnel : rafraîchir la liste toutes les 10 secondes pour voir les présences en temps réel
+    setInterval(loadUsers, 10000);
   </script>
 </body>
 </html>
