@@ -59,74 +59,88 @@
       font-weight: 500;
     }
 
-    /* Tableau blanc */
-    #board-container {
-      position: relative;
-      padding-top: 100px; /* Espace pour la case Dispatcher en haut */
+    /* Dispatcher en haut, bien séparé */
+    #dispatcher-container {
+      width: 100%;
+      max-width: 1400px;
+      margin: 20px auto;
+      text-align: center;
     }
+    #dispatcher-zone {
+      display: inline-block;
+      width: 300px;
+      padding: 16px;
+      border: 4px solid #e11d48;
+      border-radius: 16px;
+      background: #fef2f2;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+
+    /* Tableau blanc principal */
     #board {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 30px;
-      padding: 20px;
+      padding: 30px;
       background: rgba(255,255,255,0.92);
       border-radius: 16px;
-      margin: 0 auto;
+      margin: 20px auto;
       max-width: 1400px;
     }
-    .drop-zone {
-      padding: 12px;
-      border-radius: 12px;
-      background: #fff;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      min-height: 180px;
-    }
-    #dispatcher-zone {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 260px;
-      border: 4px solid #e11d48;
-      background: #fef2f2;
-      text-align: center;
-      z-index: 20;
-    }
     #available-users {
-      width: 300px;
+      width: 320px;
       min-height: 500px;
+      padding: 16px;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
     }
     .patrols {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 20px;
-      width: 100%;
+      gap: 24px;
+      flex: 1;
     }
     .patrol-zone {
-      border: 2px solid #e11d48;
-      border-radius: 12px;
+      border: 3px solid #e11d48;
+      border-radius: 16px;
       background: #fef2f2;
-      min-height: 260px;
-      padding: 10px;
+      min-height: 280px;
+      padding: 12px;
       text-align: center;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    }
+    .members {
+      min-height: 200px;
+      margin-top: 10px;
     }
     .user-tag {
-      padding: 12px 16px;
-      margin: 8px 0;
+      display: block;
+      padding: 14px 18px;
+      margin: 10px 0;
       background: #fecaca;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: grab;
       user-select: none;
-      font-weight: 500;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
-      transition: transform 0.1s;
+      font-weight: 600;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.2s;
     }
-    .user-tag:active { cursor: grabbing; transform: scale(1.05); }
-    .user-tag.admin { background: #fca5a5; font-weight: bold; }
-    .user-tag.dispatcher { background: #f87171; color: white; font-weight: bold; }
-
-    /* Team Leader = premier utilisateur de la patrouille */
+    .user-tag:active {
+      cursor: grabbing;
+      transform: scale(1.08);
+    }
+    .user-tag.admin {
+      background: #fca5a5;
+      font-weight: bold;
+    }
+    .user-tag.dispatcher {
+      background: #f87171;
+      color: white;
+      font-weight: bold;
+    }
+    /* Team Leader = premier de la patrouille */
     .patrol-zone .user-tag:first-child::before {
       content: "👑 Team Leader - ";
       color: #991b1b;
@@ -148,19 +162,20 @@
     <div id="userList"></div>
   </div>
 
-  <div id="board-container">
-    <!-- Case Dispatcher en haut centré -->
-    <div id="dispatcher-zone" class="drop-zone">
+  <!-- Dispatcher bien en haut, séparé -->
+  <div id="dispatcher-container">
+    <div id="dispatcher-zone">
       <h3>🚨 Dispatcher en poste</h3>
     </div>
+  </div>
 
-    <div id="board">
-      <div id="available-users" class="drop-zone">
-        <h3>Disponibles</h3>
-      </div>
-
-      <div class="patrols"></div>
+  <!-- Tableau blanc principal -->
+  <div id="board">
+    <div id="available-users">
+      <h3>Disponibles</h3>
     </div>
+
+    <div class="patrols"></div>
   </div>
 
   <script type="module">
@@ -176,12 +191,12 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Charger la liste simple (référence)
     async function loadUsersList() {
       const { data } = await supabase.from("users-nffa").select("*");
+      if (!data) return;
       document.getElementById("userList").innerHTML = data.map(u => {
         const cls = u.permission === "admin" ? "admin" : u.permission === "dispatcher" ? "dispatcher" : "";
-        let btn = currentUser.permission === "admin" && u.permission !== "admin"
+        const btn = currentUser.permission === "admin" && u.permission !== "admin"
           ? `<button onclick="setDispatcher(${u.id})">Désigner dispatcher</button>`
           : "";
         return `<div class="user-item ${cls}">
@@ -190,23 +205,21 @@
       }).join("");
     }
 
-    // Désigner un dispatcher (admin uniquement)
     window.setDispatcher = async function(id) {
-      await supabase.from("users-nffa").update({ permission: "user", patrol: null, position: null }).eq("permission", "dispatcher");
+      await supabase.from("users-nffa").update({ permission: "user", patrol: null }).eq("permission", "dispatcher");
       await supabase.from("users-nffa").update({ permission: "dispatcher", patrol: 0 }).eq("id", id);
-      await loadBoard();
+      loadBoard();
     };
 
-    // Chargement complet du tableau blanc
     async function loadBoard() {
-      // Rafraîchir les données de l'utilisateur courant
+      // Rafraîchir l'utilisateur courant
       const { data: fresh } = await supabase.from("users-nffa").select("*").eq("id", currentUser.id).single();
       if (fresh) currentUser = fresh;
 
       const { data: users } = await supabase.from("users-nffa").select("*").eq("presence", true);
       if (!users) return;
 
-      // Vider toutes les zones
+      // Vider les zones
       document.getElementById("available-users").innerHTML = '<h3>Disponibles</h3>';
       document.getElementById("dispatcher-zone").innerHTML = '<h3>🚨 Dispatcher en poste</h3>';
       document.querySelector(".patrols").innerHTML = '';
@@ -214,13 +227,12 @@
       // Créer les 10 patrouilles
       for (let i = 1; i <= 10; i++) {
         const div = document.createElement("div");
-        div.id = `patrol-${i}`;
-        div.className = "patrol-zone drop-zone";
+        div.className = "patrol-zone";
         div.innerHTML = `<h3>Patrouille ${i}</h3><div class="members"></div>`;
         document.querySelector(".patrols").appendChild(div);
       }
 
-      // Placer chaque utilisateur
+      // Placer les utilisateurs
       users.forEach(u => {
         const tag = document.createElement("div");
         tag.className = `user-tag ${u.permission}`;
@@ -230,7 +242,7 @@
         if (u.permission === "dispatcher" && u.patrol === 0) {
           document.getElementById("dispatcher-zone").appendChild(tag);
         } else if (u.patrol >= 1 && u.patrol <= 10) {
-          document.getElementById(`patrol-${u.patrol}`).querySelector(".members").appendChild(tag);
+          document.querySelector(`.patrols > .patrol-zone:nth-child(${u.patrol}) .members`).appendChild(tag);
         } else {
           document.getElementById("available-users").appendChild(tag);
         }
@@ -239,89 +251,83 @@
       initDragAndDrop();
     }
 
-    // Initialisation du drag & drop
     function initDragAndDrop() {
       const isAdmin = currentUser.permission === "admin";
       const isDispatcherOnDuty = currentUser.permission === "dispatcher" && currentUser.patrol === 0;
       const canManagePatrols = isAdmin || isDispatcherOnDuty;
       const canManageDispatcher = isAdmin;
 
-      const commonOptions = {
+      const options = {
         group: "users",
-        animation: 150,
+        animation: 200,
         draggable: ".user-tag",
         ghostClass: "sortable-ghost",
-        chosenClass: "sortable-chosen",
-        dragClass: "sortable-drag",
-      };
-
-      // Disponibles
-      new Sortable(document.getElementById("available-users"), {
-        ...commonOptions,
         onEnd: async (evt) => {
-          if (!canManagePatrols && evt.from !== evt.to) return;
-          await supabase.from("users-nffa")
-            .update({ patrol: null, position: null })
-            .eq("id", evt.item.dataset.userId);
-          setTimeout(loadBoard, 100); // Petit délai pour stabilité
-        }
-      });
+          if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
 
-      // Dispatcher (seul admin + uniquement celui qui a la permission dispatcher)
-      new Sortable(document.getElementById("dispatcher-zone"), {
-        ...commonOptions,
-        onEnd: async (evt) => {
-          if (!canManageDispatcher) return evt.item.remove();
-          if (evt.item.classList.contains("dispatcher") === false) return evt.item.remove();
+          const item = evt.item;
+          const userId = item.dataset.userId;
 
-          const tags = document.querySelectorAll("#dispatcher-zone .user-tag");
-          if (tags.length > 1) {
-            const old = tags[0] === evt.item ? tags[1] : tags[0];
-            document.getElementById("available-users").appendChild(old);
-            await supabase.from("users-nffa").update({ patrol: null, position: null }).eq("id", old.dataset.userId);
+          // Droits
+          if (!canManagePatrols && evt.to.id !== "available-users") {
+            evt.item.remove();
+            loadBoard();
+            return;
+          }
+          if (evt.to.id === "dispatcher-zone" && !canManageDispatcher) {
+            evt.item.remove();
+            loadBoard();
+            return;
+          }
+          if (evt.to.id === "dispatcher-zone" && !item.classList.contains("dispatcher")) {
+            evt.item.remove();
+            loadBoard();
+            return;
           }
 
-          await supabase.from("users-nffa")
-            .update({ patrol: 0 })
-            .eq("id", evt.item.dataset.userId);
-
-          setTimeout(loadBoard, 100);
-        }
-      });
-
-      // Patrouilles
-      for (let i = 1; i <= 10; i++) {
-        const members = document.getElementById(`patrol-${i}`).querySelector(".members");
-
-        new Sortable(members, {
-          ...commonOptions,
-          onEnd: async (evt) => {
-            if (!canManagePatrols && evt.from !== evt.to) return;
-
-            const tags = members.querySelectorAll(".user-tag");
-            if (tags.length > 4) {
+          // Limites
+          if (evt.to.closest(".patrol-zone")) {
+            const members = evt.to.querySelectorAll(".user-tag");
+            if (members.length > 4) {
               evt.item.remove();
+              loadBoard();
               return;
             }
-
-            await supabase.from("users-nffa")
-              .update({ patrol: i })
-              .eq("id", evt.item.dataset.userId);
-
-            // Mettre à jour les positions
-            tags.forEach(async (tag, index) => {
-              await supabase.from("users-nffa")
-                .update({ position: index + 1 })
-                .eq("id", tag.dataset.userId);
-            });
-
-            setTimeout(loadBoard, 100);
           }
-        });
-      }
+          if (evt.to.id === "dispatcher-zone") {
+            const tags = evt.to.querySelectorAll(".user-tag");
+            if (tags.length > 1) {
+              const old = tags[0] === item ? tags[1] : tags[0];
+              document.getElementById("available-users").appendChild(old);
+              await supabase.from("users-nffa").update({ patrol: null }).eq("id", old.dataset.userId);
+            }
+          }
+
+          // Mise à jour Supabase
+          let patrol = null;
+          if (evt.to.closest(".patrol-zone")) {
+            const index = Array.from(document.querySelectorAll(".patrol-zone")).indexOf(evt.to.closest(".patrol-zone")) + 1;
+            patrol = index;
+          } else if (evt.to.id === "dispatcher-zone") {
+            patrol = 0;
+          }
+
+          await supabase.from("users-nffa").update({ patrol }).eq("id", userId);
+
+          // Recharger pour synchroniser l'ordre et les positions
+          loadBoard();
+        }
+      };
+
+      // Activer sur toutes les zones
+      new Sortable(document.getElementById("available-users"), options);
+      new Sortable(document.getElementById("dispatcher-zone"), options);
+
+      document.querySelectorAll(".members").forEach(members => {
+        new Sortable(members, options);
+      });
     }
 
-    // Déconnexion
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
       localStorage.removeItem("nffa_user");
@@ -332,13 +338,9 @@
       navigator.sendBeacon(`${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}`, JSON.stringify({ presence: false }));
     });
 
-    // Démarrage
     loadUsersList();
     loadBoard();
-    setInterval(() => {
-      loadUsersList();
-      loadBoard();
-    }, 10000);
+    setInterval(() => { loadUsersList(); loadBoard(); }, 10000);
   </script>
 </body>
 </html>
