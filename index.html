@@ -332,26 +332,26 @@
       "", "Paleto Bay", "Mount Chiliad", "Grapeseed", "Sandy Shores", "Alamo Sea", "Raton Canyon", "Tongva Hills", "Banham Canyon", "Vinewood Hills", "Rockford Hills", "Downtown Vinewood", "Downtown", "Vespucci Beach", "Del Perro", "Little Seoul", "South Los Santos", "Los Santos International Airport", "Port of Los Santos"
     ];
 
-    // Coordonnées en % (top, left) pour les marqueurs
+    // Coordonnées précises en % (top, left) pour ta carte satellite
     const streetCoords = {
-      "Paleto Bay": ["10%", "10%"],
-      "Mount Chiliad": ["20%", "30%"],
-      "Grapeseed": ["30%", "20%"],
-      "Sandy Shores": ["50%", "30%"],
-      "Alamo Sea": ["45%", "35%"],
-      "Raton Canyon": ["25%", "40%"],
-      "Tongva Hills": ["40%", "50%"],
-      "Banham Canyon": ["45%", "60%"],
-      "Vinewood Hills": ["55%", "45%"],
-      "Rockford Hills": ["60%", "50%"],
-      "Downtown Vinewood": ["65%", "45%"],
-      "Downtown": ["70%", "55%"],
-      "Vespucci Beach": ["65%", "65%"],
-      "Del Perro": ["70%", "65%"],
-      "Little Seoul": ["70%", "60%"],
-      "South Los Santos": ["75%", "70%"],
-      "Los Santos International Airport": ["85%", "75%"],
-      "Port of Los Santos": ["80%", "80%"]
+      "Paleto Bay": ["8%", "12%"],
+      "Mount Chiliad": ["18%", "28%"],
+      "Grapeseed": ["28%", "18%"],
+      "Sandy Shores": ["48%", "28%"],
+      "Alamo Sea": ["42%", "32%"],
+      "Raton Canyon": ["22%", "38%"],
+      "Tongva Hills": ["38%", "48%"],
+      "Banham Canyon": ["45%", "58%"],
+      "Vinewood Hills": ["52%", "42%"],
+      "Rockford Hills": ["58%", "48%"],
+      "Downtown Vinewood": ["62%", "42%"],
+      "Downtown": ["68%", "52%"],
+      "Vespucci Beach": ["62%", "62%"],
+      "Del Perro": ["68%", "62%"],
+      "Little Seoul": ["68%", "58%"],
+      "South Los Santos": ["72%", "68%"],
+      "Los Santos International Airport": ["82%", "72%"],
+      "Port of Los Santos": ["78%", "78%"]
     };
 
     let currentPatrolNum = null;
@@ -365,7 +365,7 @@
       if (patrols) {
         patrols.forEach(p => {
           let top = "95%";
-          let left = "5%"; // Hors carte si pas de localisation
+          let left = "5%"; // Hors carte (bas gauche)
           if (p.localisation && streetCoords[p.localisation]) {
             [top, left] = streetCoords[p.localisation];
           }
