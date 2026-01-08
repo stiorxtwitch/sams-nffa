@@ -204,10 +204,10 @@
       z-index: 1000;
     }
 
-    /* CARTE AGRANDIE À FOND */
+    /* CARTE - TRÈS GRANDE ET BIEN VISIBLE */
     #map-container {
-      width: 98%;
-      height: 1200px; /* TRÈS GRANDE */
+      width: 98vw;
+      height: 1200px;
       margin: 50px auto;
       border-radius: 20px;
       overflow: hidden;
@@ -247,7 +247,6 @@
     <div class="patrols"></div>
   </div>
 
-  <!-- CARTE ÉNORME -->
   <div id="map-container">
     <div id="patrol-map"></div>
   </div>
@@ -338,16 +337,18 @@
         zoomControl: true
       });
 
+      // Nouvelle image que tu as choisie
       const mapUrl = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
       const imageBounds = [[0, 0], [1, 1]];
       L.imageOverlay(mapUrl, imageBounds).addTo(patrolMap);
 
       patrolMap.fitBounds(imageBounds);
 
-      // Force redimensionnement plusieurs fois pour être sûr
-      setTimeout(() => patrolMap.invalidateSize(true), 300);
-      setTimeout(() => patrolMap.invalidateSize(true), 800);
-      setTimeout(() => patrolMap.invalidateSize(true), 1500);
+      // Redimensionnement forcé plusieurs fois
+      setTimeout(() => patrolMap.invalidateSize(true), 100);
+      setTimeout(() => patrolMap.invalidateSize(true), 500);
+      setTimeout(() => patrolMap.invalidateSize(true), 1000);
+      setTimeout(() => patrolMap.invalidateSize(true), 2000);
       setTimeout(() => patrolMap.invalidateSize(true), 3000);
     }
 
@@ -368,7 +369,7 @@
 
           const icon = L.icon({
             iconUrl: 'https://i.imgur.com/VTKJQyv.png',
-            iconSize: [60, 60], // Un peu plus grand pour être bien visible
+            iconSize: [60, 60],
             iconAnchor: [30, 30],
             tooltipAnchor: [0, -30]
           });
