@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dispatch NFFA - SAMS</title>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
       font-family: Inter, system-ui, sans-serif;
@@ -293,10 +292,10 @@
     }
 
     /* Couleurs de bulle selon statut */
-    .bubble-en-intervention { background: #ef4444 !important; } /* Rouge */
-    .bubble-en-patrouille { background: #10b981 !important; } /* Vert */
-    .bubble-stand-by { background: #f59e0b !important; } /* Jaune */
-    .bubble-en-attente { background: #6b7280 !important; } /* Gris */
+    .bubble-en-intervention { background: #ef4444 !important; }
+    .bubble-en-patrouille { background: #10b981 !important; }
+    .bubble-stand-by { background: #f59e0b !important; }
+    .bubble-en-attente { background: #6b7280 !important; }
   </style>
 </head>
 <body>
@@ -329,6 +328,7 @@
     <div class="patrols"></div>
   </div>
 
+  <!-- CARTE IMAGE GRANDE -->
   <div id="map-container">
     <img id="map-image" src="https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png" alt="Carte Los Santos">
     <div id="markers-container"></div>
@@ -369,7 +369,6 @@
     <button onclick="saveVehicle()">Sauvegarder</button>
   </div>
 
-  <!-- Modal rapport patrouille -->
   <div class="modal" id="report-modal">
     <h3>Rapport Patrouille</h3>
     <div id="report-content"></div>
@@ -389,7 +388,7 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Afficher le bouton reset seulement pour admin
+    // Bouton reset admin
     if (currentUser.permission === "admin") {
       document.getElementById("resetBtn").style.display = "block";
     }
@@ -427,20 +426,19 @@
       const container = document.getElementById("markers-container");
       container.innerHTML = '';
 
-      if (patrols) {
+      if (patrols && patrols.length > 0) {
         const groups = {};
         patrols.forEach(p => {
           const loc = p.localisation || "none";
-          if (!groups[loc]) groups[loc] = { patrols: [], statuts: [], vehicles: [] };
-          groups[loc].patrols.push(p.patrol_name.replace('Patrouille_', ''));
+          if (!groups[loc]) groups[loc] = { patrols: [], statuts: [] };
+          groups[loc].patrols.push(p.patrol_name);
           if (p.statut) groups[loc].statuts.push(p.statut);
-          if (p.vehicle) groups[loc].vehicles.push(p.vehicle);
         });
 
         Object.keys(groups).forEach(loc => {
           const group = groups[loc];
-          const patrolNames = group.patrols.sort((a, b) => a - b).map(n => `Patrouille ${n}`);
-          const patrolList = patrolNames.join(' et ');
+          const patrolNames = group.patrols.map(name => name.replace('Patrouille_', ''));
+          const patrolList = patrolNames.sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
           const streetName = loc === "none" ? "" : loc;
 
           let bubbleClass = "bubble-en-attente";
@@ -459,7 +457,6 @@
           marker.style.top = top;
           marker.style.left = left;
 
-          // Double click pour rapport
           marker.ondblclick = () => showReport(group.patrols);
 
           marker.innerHTML = `
@@ -477,15 +474,15 @@
     }
 
     function showReport(patrolNames) {
-      let report = "<p><strong>Membres des patrouilles :</strong></p>";
+      let report = "";
       patrolNames.forEach(name => {
         const num = parseInt(name.replace("Patrouille_", ""));
         const zone = document.querySelector(`.patrols > .patrol-zone:nth-child(${num})`);
-        const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") : "Aucun";
-        report += `<p><strong>${name} :</strong> ${members || "Aucun agent"}</p>`;
+        const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") || "Aucun agent" : "Aucun agent";
+        report += `<strong>${name} :</strong> ${members}<br><br>`;
       });
 
-      document.getElementById("report-content").innerHTML = report;
+      document.getElementById("report-content").innerHTML = report || "Aucun membre.";
       document.getElementById("report-modal").style.display = "block";
       document.getElementById("modal-backdrop").style.display = "block";
     }
@@ -616,7 +613,7 @@
       }
 
       closeModal("vehicle-modal");
-      createBoardStructure();
+      createBoardStructure(); // Pour afficher le véhicule
     };
 
     window.updateLocation = async function(num) {
@@ -658,7 +655,7 @@
 
       const options = {
         group: "users",
-        animation: 200,
+        animation: 200;
         draggable: ".user-tag",
         ghostClass: "sortable-ghost",
         onEnd: async (evt) => {
@@ -695,16 +692,18 @@
     });
 
     document.getElementById("resetBtn").addEventListener("click", async () => {
-      if (!confirm("Êtes-vous sûr de vouloir tout réinitialiser ? Cela remettra toutes les patrouilles à zéro et déassignera tous les agents. Cette action est irréversible !")) {
+      if (!confirm("Êtes-vous sûr de vouloir TOUT réinitialiser ? Localisation, statut, véhicule et assignment des agents seront remis à zéro. Action irréversible !")) {
         return;
       }
 
+      // Reset complet des patrouilles
       await supabase.from("patrouille").update({
         localisation: null,
         statut: "en-attente",
         vehicle: null
       });
 
+      // Reset assignment des agents (sauf dispatcher)
       await supabase.from("users-nffa").update({ patrol: null }).not("permission", "eq", "dispatcher");
 
       alert("Tout a été réinitialisé avec succès !");
