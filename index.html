@@ -219,13 +219,34 @@
       object-fit: cover;
       display: block;
     }
+
+    /* Marqueur avec bulle ronde colorée */
     .patrol-marker {
       position: absolute;
-      width: 60px;
-      height: 60px;
+      width: 80px;
+      height: 80px;
       transform: translate(-50%, -50%);
       cursor: pointer;
       z-index: 10;
+    }
+    .patrol-bubble {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .patrol-pin {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
     .patrol-tooltip {
       position: absolute;
@@ -236,7 +257,7 @@
       font-size: 14px;
       text-align: center;
       white-space: nowrap;
-      bottom: 70px;
+      bottom: 90px;
       left: 50%;
       transform: translateX(-50%);
       display: none;
@@ -251,6 +272,12 @@
     .patrol-marker:hover .patrol-tooltip {
       display: block;
     }
+
+    /* Couleurs de bulle selon statut */
+    .bubble-en-intervention { background: #ef4444 !important; } /* Rouge */
+    .bubble-en-patrouille { background: #10b981 !important; } /* Vert */
+    .bubble-stand-by { background: #f59e0b !important; } /* Jaune */
+    .bubble-en-attente { background: #6b7280 !important; } /* Gris */
   </style>
 </head>
 <body>
@@ -334,31 +361,29 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Liste des lieux (ajoute-en si tu veux)
     const streets = [
       "", "Paleto Bay", "Mount Chiliad", "Grapeseed", "Sandy Shores", "Alamo Sea", "Raton Canyon", "Tongva Hills", "Banham Canyon", "Vinewood Hills", "Rockford Hills", "Downtown Vinewood", "Downtown", "Vespucci Beach", "Del Perro", "Little Seoul", "South Los Santos", "Los Santos International Airport", "Port of Los Santos"
     ];
 
-    // Coordonnées précises calculées à partir de tes points pixels sur l'image 2048x2048
     const streetCoords = {
-      "Paleto Bay": ["15.38%", "44.82%"], // P3: (918, 315) → top: 315/2048*100 ≈ 15.38%, left: 918/2048*100 ≈ 44.82%
-      "Mount Chiliad": ["22.85%", "50%"], // P4: (1024, 468)
-      "Grapeseed": ["28.27%", "63.43%"], // P5: (1299, 579)
-      "Sandy Shores": ["37.84%", "61.96%"], // P6: (1269, 775)
-      "Alamo Sea": ["38.53%", "50.68%"], // P7: (1038, 789)
-      "Raton Canyon": ["32.28%", "37.84%"], // P8: (775, 661)
-      "Tongva Hills": ["51.42%", "34.13%"], // P9: (699, 1053)
-      "Banham Canyon": ["53.56%", "25%"], // P10: (512, 1097)
-      "Vinewood Hills": ["62.11%", "42.82%"], // P11: (877, 1272)
-      "Rockford Hills": ["69.34%", "39.26%"], // P12: (804, 1421)
-      "Downtown Vinewood": ["65.38%", "46.97%"], // P13: (962, 1339)
-      "Downtown": ["73.44%", "45.85%"], // P14: (939, 1506)
-      "Vespucci Beach": ["78.56%", "35.11%"], // P15: (719, 1609)
-      "Del Perro": ["72.41%", "30.81%"], // P16: (631, 1483)
-      "Little Seoul": ["74.85%", "40.38%"], // P17: (827, 1533)
-      "South Los Santos": ["79.93%", "46.83%"], // P18: (959, 1638)
-      "Los Santos International Airport": ["88.43%", "35.55%"], // P19: (728, 1811)
-      "Port of Los Santos": ["88.13%", "47.66%"] // P20: (977, 1805)
+      "Paleto Bay": ["15.38%", "44.82%"],
+      "Mount Chiliad": ["22.85%", "50%"],
+      "Grapeseed": ["28.27%", "63.43%"],
+      "Sandy Shores": ["37.84%", "61.96%"],
+      "Alamo Sea": ["38.53%", "50.68%"],
+      "Raton Canyon": ["32.28%", "37.84%"],
+      "Tongva Hills": ["51.42%", "34.13%"],
+      "Banham Canyon": ["53.56%", "25%"],
+      "Vinewood Hills": ["62.11%", "42.82%"],
+      "Rockford Hills": ["69.34%", "39.26%"],
+      "Downtown Vinewood": ["65.38%", "46.97%"],
+      "Downtown": ["73.44%", "45.85%"],
+      "Vespucci Beach": ["78.56%", "35.11%"],
+      "Del Perro": ["72.41%", "30.81%"],
+      "Little Seoul": ["74.85%", "40.38%"],
+      "South Los Santos": ["79.93%", "46.83%"],
+      "Los Santos International Airport": ["88.43%", "35.55%"],
+      "Port of Los Santos": ["88.13%", "47.66%"]
     };
 
     let currentPatrolNum = null;
@@ -370,20 +395,28 @@
       container.innerHTML = '';
 
       if (patrols) {
-        // Grouper les patrouilles par localisation
+        // Grouper par localisation
         const groups = {};
         patrols.forEach(p => {
           const loc = p.localisation || "none";
-          if (!groups[loc]) groups[loc] = [];
-          groups[loc].push(p.patrol_name.replace('Patrouille_', ''));
+          if (!groups[loc]) groups[loc] = { patrols: [], statuts: [] };
+          groups[loc].patrols.push(p.patrol_name.replace('Patrouille_', ''));
+          if (p.statut) groups[loc].statuts.push(p.statut);
         });
 
         Object.keys(groups).forEach(loc => {
-          const patrolList = groups[loc].sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
+          const group = groups[loc];
+          const patrolList = group.patrols.sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
           const streetName = loc === "none" ? "" : loc;
 
+          // Priorité couleur : intervention > patrouille > stand-by > attente
+          let bubbleClass = "bubble-en-attente";
+          if (group.statuts.includes("en-intervention")) bubbleClass = "bubble-en-intervention";
+          else if (group.statuts.includes("en-patrouille")) bubbleClass = "bubble-en-patrouille";
+          else if (group.statuts.includes("stand-by")) bubbleClass = "bubble-stand-by";
+
           let top = "95%";
-          let left = "5%"; // Hors carte si pas de localisation
+          let left = "5%";
           if (loc !== "none" && streetCoords[loc]) {
             [top, left] = streetCoords[loc];
           }
@@ -394,7 +427,8 @@
           marker.style.left = left;
 
           marker.innerHTML = `
-            <img src="https://i.imgur.com/VTKJQyv.png" alt="SAMS" width="60" height="60">
+            <div class="patrol-bubble ${bubbleClass}"></div>
+            <img class="patrol-pin" src="https://i.imgur.com/w8ZkhE5.png" alt="SAMS">
             <div class="patrol-tooltip">
               ${patrolList}
               <div class="street">${streetName}</div>
@@ -510,6 +544,7 @@
       closeModal("statut-modal");
       createBoardStructure();
       loadBoard();
+      loadPatrolMarkers(); // Mise à jour couleur bulle
     };
 
     window.openVehicleModal = function(num) {
