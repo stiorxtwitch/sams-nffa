@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dispatch NFFA - SAMS</title>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
       font-family: Inter, system-ui, sans-serif;
@@ -204,19 +203,46 @@
       z-index: 1000;
     }
 
-    /* CARTE - TRÈS GRANDE ET BIEN VISIBLE */
+    /* CARTE IMAGE GRANDE */
     #map-container {
+      position: relative;
       width: 98vw;
       height: 1200px;
       margin: 50px auto;
       border-radius: 20px;
       overflow: hidden;
       box-shadow: 0 20px 50px rgba(0,0,0,0.4);
-      background: #000;
     }
-    #patrol-map {
+    #map-image {
       width: 100%;
       height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .patrol-marker {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      z-index: 10;
+    }
+    .patrol-tooltip {
+      position: absolute;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      white-space: nowrap;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      pointer-events: none;
+    }
+    .patrol-marker:hover .patrol-tooltip {
+      display: block;
     }
   </style>
 </head>
@@ -247,8 +273,10 @@
     <div class="patrols"></div>
   </div>
 
+  <!-- CARTE IMAGE GRANDE -->
   <div id="map-container">
-    <div id="patrol-map"></div>
+    <img id="map-image" src="https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png" alt="Carte Los Santos">
+    <div id="markers-container"></div>
   </div>
 
   <!-- Modals -->
@@ -286,7 +314,6 @@
     <button onclick="saveVehicle()">Sauvegarder</button>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
@@ -300,89 +327,60 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
+    // Liste des lieux
     const streets = [
       "", "Paleto Bay", "Mount Chiliad", "Grapeseed", "Sandy Shores", "Alamo Sea", "Raton Canyon", "Tongva Hills", "Banham Canyon", "Vinewood Hills", "Rockford Hills", "Downtown Vinewood", "Downtown", "Vespucci Beach", "Del Perro", "Little Seoul", "South Los Santos", "Los Santos International Airport", "Port of Los Santos"
     ];
 
+    // Coordonnées en % (top, left) pour les marqueurs
     const streetCoords = {
-      "Paleto Bay": [0.12, 0.12],
-      "Mount Chiliad": [0.22, 0.32],
-      "Grapeseed": [0.32, 0.22],
-      "Sandy Shores": [0.52, 0.32],
-      "Alamo Sea": [0.48, 0.38],
-      "Raton Canyon": [0.28, 0.42],
-      "Tongva Hills": [0.42, 0.52],
-      "Banham Canyon": [0.48, 0.62],
-      "Vinewood Hills": [0.58, 0.48],
-      "Rockford Hills": [0.62, 0.52],
-      "Downtown Vinewood": [0.68, 0.48],
-      "Downtown": [0.72, 0.58],
-      "Vespucci Beach": [0.68, 0.68],
-      "Del Perro": [0.72, 0.68],
-      "Little Seoul": [0.72, 0.62],
-      "South Los Santos": [0.78, 0.72],
-      "Los Santos International Airport": [0.88, 0.78],
-      "Port of Los Santos": [0.82, 0.82]
+      "Paleto Bay": ["10%", "10%"],
+      "Mount Chiliad": ["20%", "30%"],
+      "Grapeseed": ["30%", "20%"],
+      "Sandy Shores": ["50%", "30%"],
+      "Alamo Sea": ["45%", "35%"],
+      "Raton Canyon": ["25%", "40%"],
+      "Tongva Hills": ["40%", "50%"],
+      "Banham Canyon": ["45%", "60%"],
+      "Vinewood Hills": ["55%", "45%"],
+      "Rockford Hills": ["60%", "50%"],
+      "Downtown Vinewood": ["65%", "45%"],
+      "Downtown": ["70%", "55%"],
+      "Vespucci Beach": ["65%", "65%"],
+      "Del Perro": ["70%", "65%"],
+      "Little Seoul": ["70%", "60%"],
+      "South Los Santos": ["75%", "70%"],
+      "Los Santos International Airport": ["85%", "75%"],
+      "Port of Los Santos": ["80%", "80%"]
     };
 
-    let patrolMap = null;
-    let markers = {};
     let currentPatrolNum = null;
 
-    function initMap() {
-      patrolMap = L.map('patrol-map', {
-        crs: L.CRS.Simple,
-        minZoom: 2,
-        maxZoom: 7,
-        zoomControl: true
-      });
-
-      // Nouvelle image que tu as choisie
-      const mapUrl = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png';
-      const imageBounds = [[0, 0], [1, 1]];
-      L.imageOverlay(mapUrl, imageBounds).addTo(patrolMap);
-
-      patrolMap.fitBounds(imageBounds);
-
-      // Redimensionnement forcé plusieurs fois
-      setTimeout(() => patrolMap.invalidateSize(true), 100);
-      setTimeout(() => patrolMap.invalidateSize(true), 500);
-      setTimeout(() => patrolMap.invalidateSize(true), 1000);
-      setTimeout(() => patrolMap.invalidateSize(true), 2000);
-      setTimeout(() => patrolMap.invalidateSize(true), 3000);
-    }
-
     async function loadPatrolMarkers() {
-      if (!patrolMap) return;
-
       const { data: patrols } = await supabase.from("patrouille").select("*");
 
-      Object.values(markers).forEach(m => patrolMap.removeLayer(m));
-      markers = {};
+      const container = document.getElementById("markers-container");
+      container.innerHTML = '';
 
       if (patrols) {
         patrols.forEach(p => {
-          let coord = [0.95, 0.05]; // Hors carte si pas de localisation
+          let top = "95%";
+          let left = "5%"; // Hors carte si pas de localisation
           if (p.localisation && streetCoords[p.localisation]) {
-            coord = streetCoords[p.localisation];
+            [top, left] = streetCoords[p.localisation];
           }
 
-          const icon = L.icon({
-            iconUrl: 'https://i.imgur.com/VTKJQyv.png',
-            iconSize: [60, 60],
-            iconAnchor: [30, 30],
-            tooltipAnchor: [0, -30]
-          });
+          const marker = document.createElement("div");
+          marker.className = "patrol-marker";
+          marker.style.top = top;
+          marker.style.left = left;
 
-          const marker = L.marker(coord, { icon })
-            .addTo(patrolMap)
-            .bindTooltip(p.patrol_name.replace('_', ' '), {
-              permanent: false,
-              direction: 'top',
-              offset: [0, -10]
-            });
+          marker.innerHTML = `
+            <img src="https://i.imgur.com/VTKJQyv.png" alt="SAMS" width="60" height="60">
+            <div class="patrol-tooltip">${p.patrol_name.replace('_', ' ')}</div>
+          `;
 
-          markers[p.patrol_name] = marker;
+          container.appendChild(marker);
         });
       }
     }
@@ -596,7 +594,6 @@
     createBoardStructure();
     loadUsersList();
     loadBoard();
-    initMap();
     loadPatrolMarkers();
 
     setInterval(() => {
