@@ -563,7 +563,8 @@
         if (u.permission === "dispatcher" && u.patrol === 0) {
           document.getElementById("dispatcher-zone").appendChild(tag);
         } else if (u.patrol >= 1 && u.patrol <= 10) {
-          document.querySelector(`.patrols > .patrol-zone:nth-child(${u.patrol}) .members`).appendChild(tag);
+          const zone = document.querySelector(`.patrols > .patrol-zone:nth-child(${u.patrol}) .members`);
+          if (zone) zone.appendChild(tag);
         } else {
           document.getElementById("available-users").appendChild(tag);
         }
@@ -613,7 +614,7 @@
       }
 
       closeModal("vehicle-modal");
-      createBoardStructure(); // Pour afficher le véhicule
+      createBoardStructure();
     };
 
     window.updateLocation = async function(num) {
