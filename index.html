@@ -30,6 +30,11 @@
       justify-content: space-between;
       align-items: center;
     }
+    .header-buttons {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
     button {
       background: #dc2626;
       color: white;
@@ -39,6 +44,12 @@
       cursor: pointer;
     }
     button:hover { background: #b91c1c; }
+    #resetBtn {
+      background: #7f1d1d;
+    }
+    #resetBtn:hover {
+      background: #991b1b;
+    }
     .card {
       max-width: 900px;
       margin: 40px auto;
@@ -106,11 +117,17 @@
       border: 3px solid #e11d48;
       border-radius: 16px;
       background: #fef2f2;
-      min-height: 340px;
+      min-height: 380px; /* Plus de place pour le véhicule */
       padding: 12px;
       text-align: center;
       box-shadow: 0 6px 18px rgba(0,0,0,0.12);
       transition: background 0.3s;
+    }
+    .patrol-vehicle {
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #991b1b;
     }
     .members {
       min-height: 180px;
@@ -193,7 +210,8 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
       z-index: 1001;
       text-align: center;
-      max-width: 400px;
+      max-width: 500px;
+      width: 90%;
     }
     .modal-backdrop {
       display: none;
@@ -283,7 +301,10 @@
 <body>
   <header>
     <strong>Dispatch NFFA - SAMS</strong>
-    <button id="logoutBtn">Déconnexion</button>
+    <div class="header-buttons">
+      <button id="resetBtn" style="display: none;">All Reset</button>
+      <button id="logoutBtn">Déconnexion</button>
+    </div>
   </header>
 
   <div class="card">
@@ -348,6 +369,13 @@
     <button onclick="saveVehicle()">Sauvegarder</button>
   </div>
 
+  <!-- Modal rapport patrouille -->
+  <div class="modal" id="report-modal">
+    <h3>Rapport Patrouille</h3>
+    <div id="report-content"></div>
+    <button onclick="closeModal('report-modal')">Fermer</button>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
@@ -360,6 +388,11 @@
     if (!currentUser) window.location.href = "login.html";
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
+
+    // Bouton reset admin
+    if (currentUser.permission === "admin") {
+      document.getElementById("resetBtn").style.display = "block";
+    }
 
     const streets = [
       "", "Paleto Bay", "Mount Chiliad", "Grapeseed", "Sandy Shores", "Alamo Sea", "Raton Canyon", "Tongva Hills", "Banham Canyon", "Vinewood Hills", "Rockford Hills", "Downtown Vinewood", "Downtown", "Vespucci Beach", "Del Perro", "Little Seoul", "South Los Santos", "Los Santos International Airport", "Port of Los Santos"
@@ -395,21 +428,21 @@
       container.innerHTML = '';
 
       if (patrols) {
-        // Grouper par localisation
         const groups = {};
         patrols.forEach(p => {
           const loc = p.localisation || "none";
-          if (!groups[loc]) groups[loc] = { patrols: [], statuts: [] };
-          groups[loc].patrols.push(p.patrol_name.replace('Patrouille_', ''));
+          if (!groups[loc]) groups[loc] = { patrols: [], statuts: [], vehicles: [] };
+          groups[loc].patrols.push(p.patrol_name);
           if (p.statut) groups[loc].statuts.push(p.statut);
+          if (p.vehicle) groups[loc].vehicles.push(p.vehicle);
         });
 
         Object.keys(groups).forEach(loc => {
           const group = groups[loc];
-          const patrolList = group.patrols.sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
+          const patrolNames = group.patrols.map(name => name.replace('Patrouille_', ''));
+          const patrolList = patrolNames.sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
           const streetName = loc === "none" ? "" : loc;
 
-          // Priorité couleur : intervention > patrouille > stand-by > attente
           let bubbleClass = "bubble-en-attente";
           if (group.statuts.includes("en-intervention")) bubbleClass = "bubble-en-intervention";
           else if (group.statuts.includes("en-patrouille")) bubbleClass = "bubble-en-patrouille";
@@ -426,6 +459,9 @@
           marker.style.top = top;
           marker.style.left = left;
 
+          // Double click pour rapport
+          marker.ondblclick = () => showReport(group.patrols);
+
           marker.innerHTML = `
             <div class="patrol-bubble ${bubbleClass}"></div>
             <img class="patrol-pin" src="https://i.imgur.com/w8ZkhE5.png" alt="SAMS">
@@ -438,6 +474,23 @@
           container.appendChild(marker);
         });
       }
+    }
+
+    function showReport(patrolNames) {
+      // Récupérer les membres de ces patrouilles
+      const membersDivs = document.querySelectorAll(".members");
+      let report = "";
+
+      patrolNames.forEach(name => {
+        const num = parseInt(name.replace("Patrouille_", ""));
+        const zone = document.querySelector(`.patrols > .patrol-zone:nth-child(${num})`);
+        const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") : "Aucun";
+        report += `<strong>${name} :</strong> ${members || "Aucun agent"}<br>`;
+      });
+
+      document.getElementById("report-content").innerHTML = report || "Aucun membre.";
+      document.getElementById("report-modal").style.display = "block";
+      document.getElementById("modal-backdrop").style.display = "block";
     }
 
     async function loadUsersList() {
@@ -476,6 +529,7 @@
               <button onclick="openStatutModal(${i})">Statut</button>
             </div>
           </div>
+          ${patrolData.vehicle ? `<div class="patrol-vehicle">Véhicule : ${patrolData.vehicle}</div>` : ''}
           <div class="members"></div>
           <div class="patrol-controls">
             <select id="loc-${i}">
@@ -544,7 +598,7 @@
       closeModal("statut-modal");
       createBoardStructure();
       loadBoard();
-      loadPatrolMarkers(); // Mise à jour couleur bulle
+      loadPatrolMarkers();
     };
 
     window.openVehicleModal = function(num) {
@@ -565,6 +619,7 @@
       }
 
       closeModal("vehicle-modal");
+      createBoardStructure(); // Pour afficher le véhicule
     };
 
     window.updateLocation = async function(num) {
@@ -606,7 +661,7 @@
 
       const options = {
         group: "users",
-        animation: 200,
+        animation: 200;
         draggable: ".user-tag",
         ghostClass: "sortable-ghost",
         onEnd: async (evt) => {
@@ -640,6 +695,26 @@
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
       localStorage.removeItem("nffa_user");
       window.location.href = "login.html";
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", async () => {
+      if (!confirm("Êtes-vous sûr de vouloir tout réinitialiser ? Cela remettra toutes les patrouilles à zéro et déassignera tous les agents. Cette action est irréversible !")) {
+        return;
+      }
+
+      await supabase.from("patrouille").update({
+        localisation: null,
+        statut: "en-attente",
+        vehicle: null
+      });
+
+      await supabase.from("users-nffa").update({ patrol: null }).not("permission", "eq", "dispatcher");
+
+      alert("Tout a été réinitialisé avec succès !");
+
+      createBoardStructure();
+      loadBoard();
+      loadPatrolMarkers();
     });
 
     window.addEventListener("beforeunload", () => {
