@@ -508,11 +508,11 @@
       const { data } = await supabase.from("users-nffa").select("*");
       if (!data) return;
       document.getElementById("userList").innerHTML = data.map(u => {
-        const cls = u.permission === "admin" ? "admin" : u.permission === "dispatcher" ? "dispatcher" : "";
+        const rank = u.rank || 'Non défini';
         const btn = currentUser.permission === "admin" && u.permission !== "admin"
           ? '<button onclick="setDispatcher(' + u.id + ')">Désigner dispatcher</button>'
           : "";
-        return '<div class="user-item ' + cls + '">' + u.user + ' - ' + u.permission + ' - Présence: ' + (u.presence ? "Présent" : "Absent") + ' ' + btn + '</div>';
+        return '<div class="user-item">' + u.user + ' - Grade: ' + rank + ' - Présence: ' + (u.presence ? "Présent" : "Absent") + ' ' + btn + '</div>';
       }).join("");
     }
 
@@ -594,6 +594,44 @@
       initDragAndDrop();
     }
 
+    function initDragAndDrop() {
+      const isAdmin = currentUser.permission === "admin";
+      const isDispatcherOnDuty = currentUser.permission === "dispatcher" && currentUser.patrol === 0;
+      const canManagePatrols = isAdmin || isDispatcherOnDuty; // Dispatcher peut déplacer tout le monde
+      const canManageDispatcher = isAdmin; // Seul admin peut changer le dispatcher
+
+      const options = {
+        group: "users",
+        animation: 200;
+        draggable: ".user-tag",
+        ghostClass: "sortable-ghost",
+        onEnd: async (evt) => {
+          if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
+
+          const item = evt.item;
+          const userId = item.dataset.userId;
+          const perm = item.dataset.permission;
+
+          if (!canManagePatrols && evt.to.id !== "available-users") return loadBoard();
+          if (evt.to.id === "dispatcher-zone" && (!canManageDispatcher || perm !== "dispatcher")) return loadBoard();
+
+          let patrol = null;
+          if (evt.to.closest(".patrol-zone")) {
+            patrol = Array.from(document.querySelectorAll(".patrol-zone")).indexOf(evt.to.closest(".patrol-zone")) + 1;
+          } else if (evt.to.id === "dispatcher-zone") {
+            patrol = 0;
+          }
+
+          await supabase.from("users-nffa").update({ patrol: patrol }).eq("id", userId);
+          await loadBoard();
+        }
+      };
+
+      new Sortable(document.getElementById("available-users"), options);
+      new Sortable(document.getElementById("dispatcher-zone"), options);
+      document.querySelectorAll(".members").forEach(m => new Sortable(m, options));
+    }
+
     window.openStatutModal = function(num) {
       currentPatrolNum = num;
       document.getElementById("statut-modal").style.display = "block";
@@ -668,44 +706,6 @@
       document.getElementById(modalId).style.display = "none";
       document.getElementById("modal-backdrop").style.display = "none";
     };
-
-    function initDragAndDrop() {
-      const isAdmin = currentUser.permission === "admin";
-      const isDispatcherOnDuty = currentUser.permission === "dispatcher" && currentUser.patrol === 0;
-      const canManagePatrols = isAdmin || isDispatcherOnDuty;
-      const canManageDispatcher = isAdmin;
-
-      const options = {
-        group: "users",
-        animation: 200,
-        draggable: ".user-tag",
-        ghostClass: "sortable-ghost",
-        onEnd: async (evt) => {
-          if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
-
-          const item = evt.item;
-          const userId = item.dataset.userId;
-          const perm = item.dataset.permission;
-
-          if (!canManagePatrols && evt.to.id !== "available-users") return loadBoard();
-          if (evt.to.id === "dispatcher-zone" && (!canManageDispatcher || perm !== "dispatcher")) return loadBoard();
-
-          let patrol = null;
-          if (evt.to.closest(".patrol-zone")) {
-            patrol = Array.from(document.querySelectorAll(".patrol-zone")).indexOf(evt.to.closest(".patrol-zone")) + 1;
-          } else if (evt.to.id === "dispatcher-zone") {
-            patrol = 0;
-          }
-
-          await supabase.from("users-nffa").update({ patrol: patrol }).eq("id", userId);
-          await loadBoard();
-        }
-      };
-
-      new Sortable(document.getElementById("available-users"), options);
-      new Sortable(document.getElementById("dispatcher-zone"), options);
-      document.querySelectorAll(".members").forEach(m => new Sortable(m, options));
-    }
 
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
