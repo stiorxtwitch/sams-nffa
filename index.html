@@ -340,7 +340,7 @@
   <div class="modal-backdrop" id="modal-backdrop"></div>
 
   <div class="modal" id="user-modal">
-    <h3>Fiche Agent</h3>
+    <h3>Fiche Soignant</h3>
     <p id="user-name"></p>
     <p id="user-rank"></p>
     <p id="user-unit"></p>
@@ -348,9 +348,9 @@
   </div>
 
   <div class="modal" id="statut-modal">
-    <h3>Statut de la patrouille</h3>
+    <h3>Statut de l'Ambulance</h3>
     <select id="statut-select">
-      <option value="en-attente">En Attente de Patrouille</option>
+      <option value="en-attente">En Attente d'Intervention</option>
       <option value="stand-by">Stand-By</option>
       <option value="en-patrouille">En Patrouille</option>
       <option value="en-intervention">En Intervention</option>
@@ -362,17 +362,17 @@
     <h3>Type de véhicule</h3>
     <select id="vehicle-select">
       <option value="">Aucun</option>
-      <option value="Voiture de patrouille">Voiture de patrouille</option>
+      <option value="Voiture de patrouille">Ambulance</option>
       <option value="Moto">Moto</option>
-      <option value="Véhicule banalisé">Véhicule banalisé</option>
-      <option value="4x4">4x4</option>
+      <option value="Véhicule banalisé">Véhicule Médecin</option>
+      <option value="4x4">Ambulance Pick-up</option>
       <option value="Hélicoptère">Hélicoptère</option>
     </select>
     <button onclick="saveVehicle()">Sauvegarder</button>
   </div>
 
   <div class="modal" id="report-modal">
-    <h3>Rapport Patrouille</h3>
+    <h3>Unité</h3>
     <div id="report-content"></div>
     <button onclick="closeModal('report-modal')">Fermer</button>
   </div>
@@ -456,8 +456,8 @@
 
         Object.keys(groups).forEach(loc => {
           const group = groups[loc];
-          const patrolNames = group.patrols.map(name => name.replace('Patrouille_', ''));
-          const patrolList = patrolNames.sort((a, b) => a - b).map(n => "Patrouille " + n).join(' et ');
+          const patrolNames = group.patrols.map(name => name.replace('Ambulance_', ''));
+          const patrolList = patrolNames.sort((a, b) => a - b).map(n => "Ambulance " + n).join(' et ');
           const streetName = loc === "none" ? "" : loc;
 
           let bubbleClass = "bubble-en-attente";
@@ -494,9 +494,9 @@
     function showReport(patrolNames) {
       let report = "";
       patrolNames.forEach(name => {
-        const num = parseInt(name.replace("Patrouille_", ""));
+        const num = parseInt(name.replace("Ambulance_", ""));
         const zone = document.querySelector(".patrols > .patrol-zone:nth-child(" + num + ")");
-        const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") || "Aucun agent" : "Aucun agent";
+        const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") || "Aucun soignant" : "Aucun soignant";
         report += "<strong>" + name + " :</strong> " + members + "<br><br>";
       });
 
@@ -530,7 +530,7 @@
       patrolsContainer.innerHTML = "";
 
       for (let i = 1; i <= 10; i++) {
-        const patrolName = "Patrouille_" + i;
+        const patrolName = "Ambulance_" + i;
         const div = document.createElement("div");
         div.className = "patrol-zone";
         const patrolData = patrols ? patrols.find(p => p.patrol_name === patrolName) : {};
@@ -543,7 +543,7 @@
         });
 
         div.innerHTML = "<div class='patrol-header'>" +
-          "<h3 ondblclick='openVehicleModal(" + i + ")'>Patrouille " + i + "</h3>" +
+          "<h3 ondblclick='openVehicleModal(" + i + ")'>Ambulance " + i + "</h3>" +
           "<div class='patrol-statut'>" +
             "<button onclick='openStatutModal(" + i + ")'>Statut</button>" +
           "</div>" +
@@ -641,7 +641,7 @@
 
     window.saveStatut = async function() {
       const statut = document.getElementById("statut-select").value;
-      const patrolName = "Patrouille_" + currentPatrolNum;
+      const patrolName = "Ambulance_" + currentPatrolNum;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
@@ -664,7 +664,7 @@
 
     window.saveVehicle = async function() {
       const vehicle = document.getElementById("vehicle-select").value;
-      const patrolName = "Patrouille_" + currentPatrolNum;
+      const patrolName = "Ambulance_" + currentPatrolNum;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
@@ -680,7 +680,7 @@
     window.updateLocation = async function(num) {
       const select = document.getElementById("loc-" + num);
       const localisation = select.value || null;
-      const patrolName = "Patrouille_" + num;
+      const patrolName = "Ambulance_" + num;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
@@ -715,7 +715,7 @@
     });
 
     document.getElementById("resetBtn").addEventListener("click", async () => {
-      if (!confirm("Êtes-vous sûr de vouloir TOUT réinitialiser ? Localisation, statut, véhicule et assignment des agents seront remis à zéro. Action irréversible !")) {
+      if (!confirm("Êtes-vous sûr de vouloir TOUT réinitialiser ? Localisation, statut, véhicule et assignment des soignants seront remis à zéro. Action irréversible !")) {
         return;
       }
 
