@@ -478,14 +478,12 @@
 
           marker.ondblclick = () => showReport(group.patrols);
 
-          marker.innerHTML = `
-            <div class="patrol-bubble ${bubbleClass}"></div>
-            <img class="patrol-pin" src="https://i.imgur.com/w8ZkhE5.png" alt="SAMS">
-            <div class="patrol-tooltip">
-              ${patrolList}
-              <div class="street">${streetName}</div>
-            </div>
-          `;
+          marker.innerHTML = '<div class="patrol-bubble ' + bubbleClass + '"></div>' +
+                             '<img class="patrol-pin" src="https://i.imgur.com/w8ZkhE5.png" alt="SAMS">' +
+                             '<div class="patrol-tooltip">' +
+                               patrolList +
+                               '<div class="street">' + streetName + '</div>' +
+                             '</div>';
 
           container.appendChild(marker);
         });
@@ -498,7 +496,7 @@
         const num = parseInt(name.replace("Patrouille_", ""));
         const zone = document.querySelector(`.patrols > .patrol-zone:nth-child(${num})`);
         const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") || "Aucun agent" : "Aucun agent";
-        report += `<strong>${name} :</strong> ${members}<br><br>`;
+        report += '<strong>' + name + ' :</strong> ' + members + '<br><br>';
       });
 
       document.getElementById("report-content").innerHTML = report || "Aucun membre.";
@@ -512,9 +510,9 @@
       document.getElementById("userList").innerHTML = data.map(u => {
         const cls = u.permission === "admin" ? "admin" : u.permission === "dispatcher" ? "dispatcher" : "";
         const btn = currentUser.permission === "admin" && u.permission !== "admin"
-          ? `<button onclick="setDispatcher(${u.id})">Désigner dispatcher</button>`
+          ? '<button onclick="setDispatcher(' + u.id + ')">Désigner dispatcher</button>'
           : "";
-        return `<div class="user-item ${cls}">${u.user} - ${u.permission} - Présence: ${u.presence ? "Présent" : "Absent"} ${btn}</div>`;
+        return '<div class="user-item ' + cls + '">' + u.user + ' - ' + u.permission + ' - Présence: ' + (u.presence ? "Présent" : "Absent") + ' ' + btn + '</div>';
       }).join("");
     }
 
@@ -531,7 +529,7 @@
       patrolsContainer.innerHTML = '';
 
       for (let i = 1; i <= 10; i++) {
-        const patrolName = `Patrouille_${i}`;
+        const patrolName = 'Patrouille_' + i;
         const div = document.createElement("div");
         div.className = "patrol-zone";
         const patrolData = patrols?.find(p => p.patrol_name === patrolName) || {};
@@ -577,7 +575,7 @@
 
       users.forEach(u => {
         const tag = document.createElement("div");
-        tag.className = `user-tag ${u.permission}`;
+        tag.className = "user-tag " + u.permission;
         tag.dataset.userId = u.id;
         tag.dataset.permission = u.permission;
         tag.textContent = u.user;
@@ -604,13 +602,13 @@
 
     window.saveStatut = async function() {
       const statut = document.getElementById("statut-select").value;
-      const patrolName = `Patrouille_${currentPatrolNum}`;
+      const patrolName = 'Patrouille_' + currentPatrolNum;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
-        await supabase.from("patrouille").update({ statut }).eq("id", existing.id);
+        await supabase.from("patrouille").update({ statut: statut }).eq("id", existing.id);
       } else {
-        await supabase.from("patrouille").insert({ patrol_name: patrolName, statut });
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, statut: statut });
       }
 
       closeModal("statut-modal");
@@ -627,13 +625,13 @@
 
     window.saveVehicle = async function() {
       const vehicle = document.getElementById("vehicle-select").value;
-      const patrolName = `Patrouille_${currentPatrolNum}`;
+      const patrolName = 'Patrouille_' + currentPatrolNum;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
-        await supabase.from("patrouille").update({ vehicle }).eq("id", existing.id);
+        await supabase.from("patrouille").update({ vehicle: vehicle }).eq("id", existing.id);
       } else {
-        await supabase.from("patrouille").insert({ patrol_name: patrolName, vehicle });
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, vehicle: vehicle });
       }
 
       closeModal("vehicle-modal");
@@ -641,15 +639,15 @@
     };
 
     window.updateLocation = async function(num) {
-      const select = document.getElementById(`loc-${num}`);
+      const select = document.getElementById('loc-' + num);
       const localisation = select.value || null;
-      const patrolName = `Patrouille_${num}`;
+      const patrolName = 'Patrouille_' + num;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
-        await supabase.from("patrouille").update({ localisation }).eq("id", existing.id);
+        await supabase.from("patrouille").update({ localisation: localisation }).eq("id", existing.id);
       } else {
-        await supabase.from("patrouille").insert({ patrol_name: patrolName, localisation });
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, localisation: localisation });
       }
 
       await loadPatrolMarkers();
@@ -658,9 +656,9 @@
     async function showUserInfo(id) {
       const { data } = await supabase.from("users-nffa").select("user, rank, unit").eq("id", id).single();
       if (data) {
-        document.getElementById("user-name").textContent = `Nom: ${data.user}`;
-        document.getElementById("user-rank").textContent = `Grade: ${data.rank || 'Non défini'}`;
-        document.getElementById("user-unit").textContent = `Unité: ${data.unit || 'Non définie'}`;
+        document.getElementById("user-name").textContent = 'Nom: ' + data.user;
+        document.getElementById("user-rank").textContent = 'Grade: ' + (data.rank || 'Non défini');
+        document.getElementById("user-unit").textContent = 'Unité: ' + (data.unit || 'Non définie');
         document.getElementById("user-modal").style.display = "block";
         document.getElementById("modal-backdrop").style.display = "block";
       }
@@ -679,7 +677,7 @@
 
       const options = {
         group: "users",
-        animation: 200;
+        animation: 200,
         draggable: ".user-tag",
         ghostClass: "sortable-ghost",
         onEnd: async (evt) => {
@@ -699,7 +697,7 @@
             patrol = 0;
           }
 
-          await supabase.from("users-nffa").update({ patrol }).eq("id", userId);
+          await supabase.from("users-nffa").update({ patrol: patrol }).eq("id", userId);
           await loadBoard();
         }
       };
@@ -737,7 +735,7 @@
 
     window.addEventListener("beforeunload", () => {
       if (currentUser) {
-        navigator.sendBeacon(`${SUPABASE_URL}/rest/v1/users-nffa?id=eq.${currentUser.id}`, JSON.stringify({ presence: false }));
+        navigator.sendBeacon(SUPABASE_URL + "/rest/v1/users-nffa?id=eq." + currentUser.id, JSON.stringify({ presence: false }));
       }
     });
   </script>
