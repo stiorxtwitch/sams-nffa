@@ -204,15 +204,14 @@
       z-index: 1000;
     }
 
-    /* Carte - GRANDE ET VISIBLE */
+    /* CARTE AGRANDIE À FOND */
     #map-container {
-      width: 90%;
-      max-width: 1400px;
-      height: 800px; /* Hauteur augmentée pour bien voir la carte */
-      margin: 40px auto;
-      border-radius: 16px;
+      width: 98%;
+      height: 1200px; /* TRÈS GRANDE */
+      margin: 50px auto;
+      border-radius: 20px;
       overflow: hidden;
-      box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
       background: #000;
     }
     #patrol-map {
@@ -248,6 +247,7 @@
     <div class="patrols"></div>
   </div>
 
+  <!-- CARTE ÉNORME -->
   <div id="map-container">
     <div id="patrol-map"></div>
   </div>
@@ -344,10 +344,11 @@
 
       patrolMap.fitBounds(imageBounds);
 
-      // Forcer l'affichage complet
-      setTimeout(() => {
-        patrolMap.invalidateSize(true);
-      }, 1000);
+      // Force redimensionnement plusieurs fois pour être sûr
+      setTimeout(() => patrolMap.invalidateSize(true), 300);
+      setTimeout(() => patrolMap.invalidateSize(true), 800);
+      setTimeout(() => patrolMap.invalidateSize(true), 1500);
+      setTimeout(() => patrolMap.invalidateSize(true), 3000);
     }
 
     async function loadPatrolMarkers() {
@@ -367,9 +368,9 @@
 
           const icon = L.icon({
             iconUrl: 'https://i.imgur.com/VTKJQyv.png',
-            iconSize: [50, 50],
-            iconAnchor: [25, 25],
-            tooltipAnchor: [0, -25]
+            iconSize: [60, 60], // Un peu plus grand pour être bien visible
+            iconAnchor: [30, 30],
+            tooltipAnchor: [0, -30]
           });
 
           const marker = L.marker(coord, { icon })
@@ -591,10 +592,10 @@
     });
 
     // Démarrage
-    initMap();
     createBoardStructure();
     loadUsersList();
     loadBoard();
+    initMap();
     loadPatrolMarkers();
 
     setInterval(() => {
