@@ -536,9 +536,12 @@
         div.className = "patrol-zone";
         const patrolData = patrols?.find(p => p.patrol_name === patrolName) || {};
 
-        // Concatenation pour éviter les problèmes de backticks
         let vehicleHTML = patrolData.vehicle ? '<div class="patrol-vehicle">Véhicule : ' + patrolData.vehicle + '</div>' : '';
-        let optionsHTML = streets.map(s => '<option value="' + s + '" ' + (patrolData.localisation === s ? 'selected' : '') + '>' + (s || 'Aucune localisation') + '</option>').join('');
+        let optionsHTML = '';
+        streets.forEach(s => {
+          let selected = patrolData.localisation === s ? 'selected' : '';
+          optionsHTML += '<option value="' + s + '" ' + selected + '>' + (s || 'Aucune localisation') + '</option>';
+        });
 
         div.innerHTML = '<div class="patrol-header">' +
           '<h3 ondblclick="openVehicleModal(' + i + ')">Patrouille ' + i + '</h3>' +
@@ -560,8 +563,6 @@
         patrolsContainer.appendChild(div);
       }
     }
-
-    // Le reste du code est identique (loadBoard, modals, drag&drop, reset, etc.)
 
     async function loadBoard() {
       const { data: fresh } = await supabase.from("users-nffa").select("*").eq("id", currentUser.id).single();
@@ -595,7 +596,118 @@
       initDragAndDrop();
     }
 
-    // ... (les fonctions openStatutModal, saveStatut, openVehicleModal, saveVehicle, updateLocation, showUserInfo, closeModal, initDragAndDrop, logout, resetBtn, beforeunload sont identiques à la version précédente)
+    window.openStatutModal = function(num) {
+      currentPatrolNum = num;
+      document.getElementById("statut-modal").style.display = "block";
+      document.getElementById("modal-backdrop").style.display = "block";
+    };
+
+    window.saveStatut = async function() {
+      const statut = document.getElementById("statut-select").value;
+      const patrolName = `Patrouille_${currentPatrolNum}`;
+
+      const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
+      if (existing) {
+        await supabase.from("patrouille").update({ statut }).eq("id", existing.id);
+      } else {
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, statut });
+      }
+
+      closeModal("statut-modal");
+      await createBoardStructure();
+      await loadBoard();
+      await loadPatrolMarkers();
+    };
+
+    window.openVehicleModal = function(num) {
+      currentPatrolNum = num;
+      document.getElementById("vehicle-modal").style.display = "block";
+      document.getElementById("modal-backdrop").style.display = "block";
+    };
+
+    window.saveVehicle = async function() {
+      const vehicle = document.getElementById("vehicle-select").value;
+      const patrolName = `Patrouille_${currentPatrolNum}`;
+
+      const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
+      if (existing) {
+        await supabase.from("patrouille").update({ vehicle }).eq("id", existing.id);
+      } else {
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, vehicle });
+      }
+
+      closeModal("vehicle-modal");
+      await createBoardStructure();
+    };
+
+    window.updateLocation = async function(num) {
+      const select = document.getElementById(`loc-${num}`);
+      const localisation = select.value || null;
+      const patrolName = `Patrouille_${num}`;
+
+      const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
+      if (existing) {
+        await supabase.from("patrouille").update({ localisation }).eq("id", existing.id);
+      } else {
+        await supabase.from("patrouille").insert({ patrol_name: patrolName, localisation });
+      }
+
+      await loadPatrolMarkers();
+    };
+
+    async function showUserInfo(id) {
+      const { data } = await supabase.from("users-nffa").select("user, rank, unit").eq("id", id).single();
+      if (data) {
+        document.getElementById("user-name").textContent = `Nom: ${data.user}`;
+        document.getElementById("user-rank").textContent = `Grade: ${data.rank || 'Non défini'}`;
+        document.getElementById("user-unit").textContent = `Unité: ${data.unit || 'Non définie'}`;
+        document.getElementById("user-modal").style.display = "block";
+        document.getElementById("modal-backdrop").style.display = "block";
+      }
+    }
+
+    window.closeModal = function(modalId) {
+      document.getElementById(modalId).style.display = "none";
+      document.getElementById("modal-backdrop").style.display = "none";
+    };
+
+    function initDragAndDrop() {
+      const isAdmin = currentUser.permission === "admin";
+      const isDispatcherOnDuty = currentUser.permission === "dispatcher" && currentUser.patrol === 0;
+      const canManagePatrols = isAdmin || isDispatcherOnDuty;
+      const canManageDispatcher = isAdmin;
+
+      const options = {
+        group: "users",
+        animation: 200;
+        draggable: ".user-tag",
+        ghostClass: "sortable-ghost",
+        onEnd: async (evt) => {
+          if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
+
+          const item = evt.item;
+          const userId = item.dataset.userId;
+          const perm = item.dataset.permission;
+
+          if (!canManagePatrols && evt.to.id !== "available-users") return loadBoard();
+          if (evt.to.id === "dispatcher-zone" && (!canManageDispatcher || perm !== "dispatcher")) return loadBoard();
+
+          let patrol = null;
+          if (evt.to.closest(".patrol-zone")) {
+            patrol = Array.from(document.querySelectorAll(".patrol-zone")).indexOf(evt.to.closest(".patrol-zone")) + 1;
+          } else if (evt.to.id === "dispatcher-zone") {
+            patrol = 0;
+          }
+
+          await supabase.from("users-nffa").update({ patrol }).eq("id", userId);
+          await loadBoard();
+        }
+      };
+
+      new Sortable(document.getElementById("available-users"), options);
+      new Sortable(document.getElementById("dispatcher-zone"), options);
+      document.querySelectorAll(".members").forEach(m => new Sortable(m, options));
+    }
 
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       await supabase.from("users-nffa").update({ presence: false }).eq("id", currentUser.id);
