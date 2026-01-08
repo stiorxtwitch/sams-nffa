@@ -229,17 +229,24 @@
     }
     .patrol-tooltip {
       position: absolute;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.85);
       color: white;
-      padding: 8px 12px;
-      border-radius: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
       font-size: 14px;
+      text-align: center;
       white-space: nowrap;
       bottom: 70px;
       left: 50%;
       transform: translateX(-50%);
       display: none;
       pointer-events: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    .patrol-tooltip .street {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 4px;
     }
     .patrol-marker:hover .patrol-tooltip {
       display: block;
@@ -327,31 +334,31 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Liste des lieux
+    // Liste des lieux (ajoute-en si tu veux)
     const streets = [
       "", "Paleto Bay", "Mount Chiliad", "Grapeseed", "Sandy Shores", "Alamo Sea", "Raton Canyon", "Tongva Hills", "Banham Canyon", "Vinewood Hills", "Rockford Hills", "Downtown Vinewood", "Downtown", "Vespucci Beach", "Del Perro", "Little Seoul", "South Los Santos", "Los Santos International Airport", "Port of Los Santos"
     ];
 
-    // Coordonnées précises en % (top, left) pour ta carte satellite
+    // Coordonnées précises calculées à partir de tes points pixels sur l'image 2048x2048
     const streetCoords = {
-      "Paleto Bay": ["8%", "12%"],
-      "Mount Chiliad": ["18%", "28%"],
-      "Grapeseed": ["28%", "18%"],
-      "Sandy Shores": ["48%", "28%"],
-      "Alamo Sea": ["42%", "32%"],
-      "Raton Canyon": ["22%", "38%"],
-      "Tongva Hills": ["38%", "48%"],
-      "Banham Canyon": ["45%", "58%"],
-      "Vinewood Hills": ["52%", "42%"],
-      "Rockford Hills": ["58%", "48%"],
-      "Downtown Vinewood": ["62%", "42%"],
-      "Downtown": ["68%", "52%"],
-      "Vespucci Beach": ["62%", "62%"],
-      "Del Perro": ["68%", "62%"],
-      "Little Seoul": ["68%", "58%"],
-      "South Los Santos": ["72%", "68%"],
-      "Los Santos International Airport": ["82%", "72%"],
-      "Port of Los Santos": ["78%", "78%"]
+      "Paleto Bay": ["15.38%", "44.82%"], // P3: (918, 315) → top: 315/2048*100 ≈ 15.38%, left: 918/2048*100 ≈ 44.82%
+      "Mount Chiliad": ["22.85%", "50%"], // P4: (1024, 468)
+      "Grapeseed": ["28.27%", "63.43%"], // P5: (1299, 579)
+      "Sandy Shores": ["37.84%", "61.96%"], // P6: (1269, 775)
+      "Alamo Sea": ["38.53%", "50.68%"], // P7: (1038, 789)
+      "Raton Canyon": ["32.28%", "37.84%"], // P8: (775, 661)
+      "Tongva Hills": ["51.42%", "34.13%"], // P9: (699, 1053)
+      "Banham Canyon": ["53.56%", "25%"], // P10: (512, 1097)
+      "Vinewood Hills": ["62.11%", "42.82%"], // P11: (877, 1272)
+      "Rockford Hills": ["69.34%", "39.26%"], // P12: (804, 1421)
+      "Downtown Vinewood": ["65.38%", "46.97%"], // P13: (962, 1339)
+      "Downtown": ["73.44%", "45.85%"], // P14: (939, 1506)
+      "Vespucci Beach": ["78.56%", "35.11%"], // P15: (719, 1609)
+      "Del Perro": ["72.41%", "30.81%"], // P16: (631, 1483)
+      "Little Seoul": ["74.85%", "40.38%"], // P17: (827, 1533)
+      "South Los Santos": ["79.93%", "46.83%"], // P18: (959, 1638)
+      "Los Santos International Airport": ["88.43%", "35.55%"], // P19: (728, 1811)
+      "Port of Los Santos": ["88.13%", "47.66%"] // P20: (977, 1805)
     };
 
     let currentPatrolNum = null;
@@ -363,11 +370,22 @@
       container.innerHTML = '';
 
       if (patrols) {
+        // Grouper les patrouilles par localisation
+        const groups = {};
         patrols.forEach(p => {
+          const loc = p.localisation || "none";
+          if (!groups[loc]) groups[loc] = [];
+          groups[loc].push(p.patrol_name.replace('Patrouille_', ''));
+        });
+
+        Object.keys(groups).forEach(loc => {
+          const patrolList = groups[loc].sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
+          const streetName = loc === "none" ? "" : loc;
+
           let top = "95%";
-          let left = "5%"; // Hors carte (bas gauche)
-          if (p.localisation && streetCoords[p.localisation]) {
-            [top, left] = streetCoords[p.localisation];
+          let left = "5%"; // Hors carte si pas de localisation
+          if (loc !== "none" && streetCoords[loc]) {
+            [top, left] = streetCoords[loc];
           }
 
           const marker = document.createElement("div");
@@ -377,7 +395,10 @@
 
           marker.innerHTML = `
             <img src="https://i.imgur.com/VTKJQyv.png" alt="SAMS" width="60" height="60">
-            <div class="patrol-tooltip">${p.patrol_name.replace('_', ' ')}</div>
+            <div class="patrol-tooltip">
+              ${patrolList}
+              <div class="street">${streetName}</div>
+            </div>
           `;
 
           container.appendChild(marker);
