@@ -154,7 +154,7 @@
       font-weight: bold;
     }
 
-    /* Header patrouille */
+    /* Header ambulance */
     .patrol-header {
       display: flex;
       justify-content: space-between;
@@ -326,7 +326,7 @@
       <h3>Disponibles</h3>
     </div>
     <div class="patrols">
-      <!-- Les patrouilles seront chargées ici -->
+      <!-- Les ambulances seront chargées ici -->
     </div>
   </div>
 
@@ -362,10 +362,10 @@
     <h3>Type de véhicule</h3>
     <select id="vehicle-select">
       <option value="">Aucun</option>
-      <option value="Voiture de patrouille">Ambulance</option>
+      <option value="Ambulance">Ambulance</option>
       <option value="Moto">Moto</option>
-      <option value="Véhicule banalisé">Véhicule Médecin</option>
-      <option value="4x4">Ambulance Pick-up</option>
+      <option value="Véhicule Médecin">Véhicule Médecin</option>
+      <option value="Ambulance Pick-up">Ambulance Pick-up</option>
       <option value="Hélicoptère">Hélicoptère</option>
     </select>
     <button onclick="saveVehicle()">Sauvegarder</button>
@@ -500,7 +500,7 @@
         report += "<strong>" + name + " :</strong> " + members + "<br><br>";
       });
 
-      document.getElementById("report-content").innerHTML = report || "Aucun membre.";
+      document.getElementById("report-content").innerHTML = report || "Aucun soignant.";
       document.getElementById("report-modal").style.display = "block";
       document.getElementById("modal-backdrop").style.display = "block";
     }
@@ -510,7 +510,7 @@
       if (!data) return;
       document.getElementById("userList").innerHTML = data.map(u => {
         const rank = u.rank || "Non défini";
-        const btn = currentUser.permission === "admin" && u.permission !== "admin"
+        const btn = currentUser && currentUser.permission === "admin" && u.permission !== "admin"
           ? "<button onclick='setDispatcher(" + u.id + ")'>Désigner dispatcher</button>"
           : "";
         return "<div class='user-item'>" + u.user + " - Grade: " + rank + " - Présence: " + (u.presence ? "Présent" : "Absent") + " " + btn + "</div>";
@@ -533,12 +533,12 @@
         const patrolName = "Ambulance_" + i;
         const div = document.createElement("div");
         div.className = "patrol-zone";
-        const patrolData = patrols ? patrols.find(p => p.patrol_name === patrolName) : {};
+        const patrolData = patrols ? patrols.find(p => p.patrol_name === patrolName) : null;
 
-        let vehicleHTML = patrolData.vehicle ? "<div class='patrol-vehicle'>Véhicule : " + patrolData.vehicle + "</div>" : "";
+        let vehicleHTML = (patrolData && patrolData.vehicle) ? "<div class='patrol-vehicle'>Véhicule : " + patrolData.vehicle + "</div>" : "";
         let optionsHTML = "";
         streets.forEach(s => {
-          let selected = patrolData.localisation === s ? "selected" : "";
+          let selected = (patrolData && patrolData.localisation === s) ? "selected" : "";
           optionsHTML += "<option value='" + s + "' " + selected + ">" + (s || "Aucune localisation") + "</option>";
         });
 
@@ -555,7 +555,7 @@
           "<button onclick='updateLocation(" + i + ")'>Mettre à jour localisation</button>" +
         "</div>";
 
-        if (patrolData.statut) {
+        if (patrolData && patrolData.statut) {
           div.classList.add(patrolData.statut);
         }
 
