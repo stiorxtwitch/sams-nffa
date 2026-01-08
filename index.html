@@ -394,7 +394,7 @@
         return;
       }
 
-      document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
+      document.getElementById("welcome").textContent = "Bienvenue " + currentUser.user + " (" + currentUser.permission + ")";
 
       if (currentUser.permission === "admin") {
         document.getElementById("resetBtn").style.display = "block";
@@ -457,7 +457,7 @@
         Object.keys(groups).forEach(loc => {
           const group = groups[loc];
           const patrolNames = group.patrols.map(name => name.replace('Patrouille_', ''));
-          const patrolList = patrolNames.sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
+          const patrolList = patrolNames.sort((a, b) => a - b).map(n => "Patrouille " + n).join(' et ');
           const streetName = loc === "none" ? "" : loc;
 
           let bubbleClass = "bubble-en-attente";
@@ -468,7 +468,8 @@
           let top = "95%";
           let left = "5%";
           if (loc !== "none" && streetCoords[loc]) {
-            [top, left] = streetCoords[loc];
+            top = streetCoords[loc][0];
+            left = streetCoords[loc][1];
           }
 
           const marker = document.createElement("div");
@@ -494,9 +495,9 @@
       let report = "";
       patrolNames.forEach(name => {
         const num = parseInt(name.replace("Patrouille_", ""));
-        const zone = document.querySelector(`.patrols > .patrol-zone:nth-child(${num})`);
+        const zone = document.querySelector(".patrols > .patrol-zone:nth-child(" + num + ")");
         const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") || "Aucun agent" : "Aucun agent";
-        report += '<strong>' + name + ' :</strong> ' + members + '<br><br>';
+        report += "<strong>" + name + " :</strong> " + members + "<br><br>";
       });
 
       document.getElementById("report-content").innerHTML = report || "Aucun membre.";
@@ -508,11 +509,11 @@
       const { data } = await supabase.from("users-nffa").select("*");
       if (!data) return;
       document.getElementById("userList").innerHTML = data.map(u => {
-        const rank = u.rank || 'Non défini';
+        const rank = u.rank || "Non défini";
         const btn = currentUser.permission === "admin" && u.permission !== "admin"
-          ? '<button onclick="setDispatcher(' + u.id + ')">Désigner dispatcher</button>'
+          ? "<button onclick='setDispatcher(" + u.id + ")'>Désigner dispatcher</button>"
           : "";
-        return '<div class="user-item">' + u.user + ' - Grade: ' + rank + ' - Présence: ' + (u.presence ? "Présent" : "Absent") + ' ' + btn + '</div>';
+        return "<div class='user-item'>" + u.user + " - Grade: " + rank + " - Présence: " + (u.presence ? "Présent" : "Absent") + " " + btn + "</div>";
       }).join("");
     }
 
@@ -526,33 +527,33 @@
       const { data: patrols } = await supabase.from("patrouille").select("*");
 
       const patrolsContainer = document.querySelector(".patrols");
-      patrolsContainer.innerHTML = '';
+      patrolsContainer.innerHTML = "";
 
       for (let i = 1; i <= 10; i++) {
-        const patrolName = 'Patrouille_' + i;
+        const patrolName = "Patrouille_" + i;
         const div = document.createElement("div");
         div.className = "patrol-zone";
-        const patrolData = patrols?.find(p => p.patrol_name === patrolName) || {};
+        const patrolData = patrols ? patrols.find(p => p.patrol_name === patrolName) : {};
 
-        let vehicleHTML = patrolData.vehicle ? '<div class="patrol-vehicle">Véhicule : ' + patrolData.vehicle + '</div>' : '';
-        let optionsHTML = '';
+        let vehicleHTML = patrolData.vehicle ? "<div class='patrol-vehicle'>Véhicule : " + patrolData.vehicle + "</div>" : "";
+        let optionsHTML = "";
         streets.forEach(s => {
-          let selected = patrolData.localisation === s ? 'selected' : '';
-          optionsHTML += '<option value="' + s + '" ' + selected + '>' + (s || 'Aucune localisation') + '</option>';
+          let selected = patrolData.localisation === s ? "selected" : "";
+          optionsHTML += "<option value='" + s + "' " + selected + ">" + (s || "Aucune localisation") + "</option>";
         });
 
-        div.innerHTML = '<div class="patrol-header">' +
-          '<h3 ondblclick="openVehicleModal(' + i + ')">Patrouille ' + i + '</h3>' +
-          '<div class="patrol-statut">' +
-            '<button onclick="openStatutModal(' + i + ')">Statut</button>' +
-          '</div>' +
-        '</div>' +
+        div.innerHTML = "<div class='patrol-header'>" +
+          "<h3 ondblclick='openVehicleModal(" + i + ")'>Patrouille " + i + "</h3>" +
+          "<div class='patrol-statut'>" +
+            "<button onclick='openStatutModal(" + i + ")'>Statut</button>" +
+          "</div>" +
+        "</div>" +
         vehicleHTML +
-        '<div class="members"></div>' +
-        '<div class="patrol-controls">' +
-          '<select id="loc-' + i + '">' + optionsHTML + '</select>' +
-          '<button onclick="updateLocation(' + i + ')">Mettre à jour localisation</button>' +
-        '</div>';
+        "<div class='members'></div>" +
+        "<div class='patrol-controls'>" +
+          "<select id='loc-" + i + "'>" + optionsHTML + "</select>" +
+          "<button onclick='updateLocation(" + i + ")'>Mettre à jour localisation</button>" +
+        "</div>";
 
         if (patrolData.statut) {
           div.classList.add(patrolData.statut);
@@ -569,9 +570,9 @@
       const { data: users } = await supabase.from("users-nffa").select("*").eq("presence", true);
       if (!users) return;
 
-      document.getElementById("available-users").innerHTML = '<h3>Disponibles</h3>';
-      document.getElementById("dispatcher-zone").innerHTML = '<h3>Dispatcher en poste</h3>';
-      document.querySelectorAll(".members").forEach(m => m.innerHTML = '');
+      document.getElementById("available-users").innerHTML = "<h3>Disponibles</h3>";
+      document.getElementById("dispatcher-zone").innerHTML = "<h3>Dispatcher en poste</h3>";
+      document.querySelectorAll(".members").forEach(m => m.innerHTML = "");
 
       users.forEach(u => {
         const tag = document.createElement("div");
@@ -579,12 +580,12 @@
         tag.dataset.userId = u.id;
         tag.dataset.permission = u.permission;
         tag.textContent = u.user;
-        tag.addEventListener('dblclick', () => showUserInfo(u.id));
+        tag.addEventListener("dblclick", () => showUserInfo(u.id));
 
         if (u.permission === "dispatcher" && u.patrol === 0) {
           document.getElementById("dispatcher-zone").appendChild(tag);
         } else if (u.patrol >= 1 && u.patrol <= 10) {
-          const zone = document.querySelector(`.patrols > .patrol-zone:nth-child(${u.patrol}) .members`);
+          const zone = document.querySelector(".patrols > .patrol-zone:nth-child(" + u.patrol + ") .members");
           if (zone) zone.appendChild(tag);
         } else {
           document.getElementById("available-users").appendChild(tag);
@@ -597,12 +598,12 @@
     function initDragAndDrop() {
       const isAdmin = currentUser.permission === "admin";
       const isDispatcherOnDuty = currentUser.permission === "dispatcher" && currentUser.patrol === 0;
-      const canManagePatrols = isAdmin || isDispatcherOnDuty; // Dispatcher peut déplacer tout le monde
-      const canManageDispatcher = isAdmin; // Seul admin peut changer le dispatcher
+      const canManagePatrols = isAdmin || isDispatcherOnDuty;
+      const canManageDispatcher = isAdmin;
 
       const options = {
         group: "users",
-        animation: 200;
+        animation: 200,
         draggable: ".user-tag",
         ghostClass: "sortable-ghost",
         onEnd: async (evt) => {
@@ -640,7 +641,7 @@
 
     window.saveStatut = async function() {
       const statut = document.getElementById("statut-select").value;
-      const patrolName = 'Patrouille_' + currentPatrolNum;
+      const patrolName = "Patrouille_" + currentPatrolNum;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
@@ -663,7 +664,7 @@
 
     window.saveVehicle = async function() {
       const vehicle = document.getElementById("vehicle-select").value;
-      const patrolName = 'Patrouille_' + currentPatrolNum;
+      const patrolName = "Patrouille_" + currentPatrolNum;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
@@ -677,9 +678,9 @@
     };
 
     window.updateLocation = async function(num) {
-      const select = document.getElementById('loc-' + num);
+      const select = document.getElementById("loc-" + num);
       const localisation = select.value || null;
-      const patrolName = 'Patrouille_' + num;
+      const patrolName = "Patrouille_" + num;
 
       const { data: existing } = await supabase.from("patrouille").select("id").eq("patrol_name", patrolName).single();
       if (existing) {
@@ -694,9 +695,9 @@
     async function showUserInfo(id) {
       const { data } = await supabase.from("users-nffa").select("user, rank, unit").eq("id", id).single();
       if (data) {
-        document.getElementById("user-name").textContent = 'Nom: ' + data.user;
-        document.getElementById("user-rank").textContent = 'Grade: ' + (data.rank || 'Non défini');
-        document.getElementById("user-unit").textContent = 'Unité: ' + (data.unit || 'Non définie');
+        document.getElementById("user-name").textContent = "Nom: " + data.user;
+        document.getElementById("user-rank").textContent = "Grade: " + (data.rank || "Non défini");
+        document.getElementById("user-unit").textContent = "Unité: " + (data.unit || "Non définie");
         document.getElementById("user-modal").style.display = "block";
         document.getElementById("modal-backdrop").style.display = "block";
       }
