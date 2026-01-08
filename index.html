@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dispatch NFFA - SAMS</title>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
       font-family: Inter, system-ui, sans-serif;
@@ -117,7 +118,7 @@
       border: 3px solid #e11d48;
       border-radius: 16px;
       background: #fef2f2;
-      min-height: 380px; /* Plus de place pour le véhicule */
+      min-height: 380px;
       padding: 12px;
       text-align: center;
       box-shadow: 0 6px 18px rgba(0,0,0,0.12);
@@ -328,7 +329,6 @@
     <div class="patrols"></div>
   </div>
 
-  <!-- CARTE IMAGE GRANDE -->
   <div id="map-container">
     <img id="map-image" src="https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_SATELLITE_2048x2048.png" alt="Carte Los Santos">
     <div id="markers-container"></div>
@@ -389,7 +389,7 @@
 
     document.getElementById("welcome").textContent = `Bienvenue ${currentUser.user} (${currentUser.permission})`;
 
-    // Bouton reset admin
+    // Afficher le bouton reset seulement pour admin
     if (currentUser.permission === "admin") {
       document.getElementById("resetBtn").style.display = "block";
     }
@@ -432,15 +432,15 @@
         patrols.forEach(p => {
           const loc = p.localisation || "none";
           if (!groups[loc]) groups[loc] = { patrols: [], statuts: [], vehicles: [] };
-          groups[loc].patrols.push(p.patrol_name);
+          groups[loc].patrols.push(p.patrol_name.replace('Patrouille_', ''));
           if (p.statut) groups[loc].statuts.push(p.statut);
           if (p.vehicle) groups[loc].vehicles.push(p.vehicle);
         });
 
         Object.keys(groups).forEach(loc => {
           const group = groups[loc];
-          const patrolNames = group.patrols.map(name => name.replace('Patrouille_', ''));
-          const patrolList = patrolNames.sort((a, b) => a - b).map(n => `Patrouille ${n}`).join(' et ');
+          const patrolNames = group.patrols.sort((a, b) => a - b).map(n => `Patrouille ${n}`);
+          const patrolList = patrolNames.join(' et ');
           const streetName = loc === "none" ? "" : loc;
 
           let bubbleClass = "bubble-en-attente";
@@ -477,18 +477,15 @@
     }
 
     function showReport(patrolNames) {
-      // Récupérer les membres de ces patrouilles
-      const membersDivs = document.querySelectorAll(".members");
-      let report = "";
-
+      let report = "<p><strong>Membres des patrouilles :</strong></p>";
       patrolNames.forEach(name => {
         const num = parseInt(name.replace("Patrouille_", ""));
         const zone = document.querySelector(`.patrols > .patrol-zone:nth-child(${num})`);
         const members = zone ? Array.from(zone.querySelectorAll(".user-tag")).map(tag => tag.textContent).join(", ") : "Aucun";
-        report += `<strong>${name} :</strong> ${members || "Aucun agent"}<br>`;
+        report += `<p><strong>${name} :</strong> ${members || "Aucun agent"}</p>`;
       });
 
-      document.getElementById("report-content").innerHTML = report || "Aucun membre.";
+      document.getElementById("report-content").innerHTML = report;
       document.getElementById("report-modal").style.display = "block";
       document.getElementById("modal-backdrop").style.display = "block";
     }
@@ -619,7 +616,7 @@
       }
 
       closeModal("vehicle-modal");
-      createBoardStructure(); // Pour afficher le véhicule
+      createBoardStructure();
     };
 
     window.updateLocation = async function(num) {
@@ -661,7 +658,7 @@
 
       const options = {
         group: "users",
-        animation: 200;
+        animation: 200,
         draggable: ".user-tag",
         ghostClass: "sortable-ghost",
         onEnd: async (evt) => {
